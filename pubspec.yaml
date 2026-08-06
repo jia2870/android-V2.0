@@ -1,0 +1,55 @@
+name: mobile_asg
+description: "A new Flutter project."
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Flutter Localizations - 用于多语言支持
+  flutter_localizations:
+    sdk: flutter
+
+
+  flex_color_scheme: ^7.3.1
+
+  # Cupertino Icons - iOS风格图标
+  cupertino_icons: ^1.0.8
+
+  # State Management - 状态管理
+  provider: ^6.1.2
+
+  # Storage - 本地存储
+  shared_preferences: ^2.3.0
+
+  # HTTP & API - HTTP请求
+  http: ^1.2.2
+
+  # Date Formatting - 日期格式化 (必须使用 0.20.2 以兼容 flutter_localizations)
+  intl: ^0.20.2  # ✅ 修改这里
+
+  # Supabase - 后端服务
+  supabase_flutter: ^2.8.0
+
+  # App Links - 应用链接
+  app_links: ^6.3.0
+
+  # Secure Storage - 安全存储 (可选但推荐)
+  flutter_secure_storage: ^9.2.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Flutter Lints - 代码规范
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
