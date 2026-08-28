@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../constants/env.dart';  // 添加这行
+import '../constants/env.dart';
 import '../models/property_model.dart';
+import '../utils/affordability_context.dart';
+import '../utils/loan_calculator.dart';
+import '../utils/money_format.dart';
 
 class AIService {
-  // 使用 Env 中的配置
   static const String _apiKey = Env.openAiApiKey;
   static const String _apiUrl = '${Env.openAiBaseUrl}/chat/completions';
   static const String _model = Env.gptModel;
@@ -17,21 +19,30 @@ class AIService {
     required double monthlyIncome,
     required double commitments,
     required double savings,
+    required double recommendedBudget,
     required String purpose,
     required int preferredBedrooms,
     required String preferredState,
     required List<String> importantFactors,
   }) async {
-    // 检查 API Key 是否配置
+    final buyer = BuyerAffordabilitySnapshot(
+      monthlyIncome: monthlyIncome,
+      commitments: commitments,
+      savings: savings,
+      recommendedBudget: recommendedBudget,
+    );
+    final afford = PropertyAffordability.forPrice(
+      price: property.price,
+      buyer: buyer,
+    );
+
     if (_apiKey == 'YOUR_OPENAI_API_KEY_HERE' || _apiKey.isEmpty) {
       return _generateFallbackAnalysis(
         property: property,
-        matchScore: matchScore,
+        afford: afford,
+        buyer: buyer,
         isAffordable: isAffordable,
         matchDetails: matchDetails,
-        monthlyIncome: monthlyIncome,
-        commitments: commitments,
-        savings: savings,
         purpose: purpose,
         preferredBedrooms: preferredBedrooms,
         preferredState: preferredState,
@@ -42,12 +53,11 @@ class AIService {
     try {
       final prompt = _buildPrompt(
         property: property,
+        afford: afford,
+        buyer: buyer,
         matchScore: matchScore,
         isAffordable: isAffordable,
         matchDetails: matchDetails,
-        monthlyIncome: monthlyIncome,
-        commitments: commitments,
-        savings: savings,
         purpose: purpose,
         preferredBedrooms: preferredBedrooms,
         preferredState: preferredState,
@@ -66,23 +76,21 @@ class AIService {
             {
               'role': 'system',
               'content': '''
-You are a professional property advisor AI assistant. Your task is to analyze whether a property matches a user's financial situation and preferences.
+You are a Malaysian property advisor. Analyze whether this property suits the buyer.
 
-Provide a comprehensive analysis with:
-1. A clear summary statement
-2. Percentage match score interpretation
-3. Affordability assessment (is it within budget? If not, by how much?)
-4. Key matching factors (what matches well, what doesn't)
-5. A clear recommendation (Should they consider this property? Why or why not?)
-6. Specific action items or advice
+Structure your response:
+1. **Loan & DSR first** — estimated monthly installment, total DSR after this loan, whether it fits Malaysian banking norms (~70% DSR guideline).
+2. **Budget fit** — compare price to recommended budget and savings for down payment.
+3. **Preference fit** — bedrooms, location, purpose ($purpose), important factors. Treat match scores as hints only.
+4. **Clear verdict** — should they view this property? What trade-offs?
 
-Keep your response concise, professional, and actionable. Use bullet points for readability.
+Do NOT lead with a match percentage. Be concise, use bullet points, under 250 words.
 '''
             },
             {'role': 'user', 'content': prompt},
           ],
-          'temperature': 0.7,
-          'max_tokens': 800,
+          'temperature': 0.6,
+          'max_tokens': 900,
         }),
       );
 
@@ -90,31 +98,26 @@ Keep your response concise, professional, and actionable. Use bullet points for 
         final data = jsonDecode(response.body);
         return data['choices'][0]['message']['content'] ??
             'Unable to generate analysis.';
-      } else {
-        // API 调用失败，使用备用分析
-        return _generateFallbackAnalysis(
-          property: property,
-          matchScore: matchScore,
-          isAffordable: isAffordable,
-          matchDetails: matchDetails,
-          monthlyIncome: monthlyIncome,
-          commitments: commitments,
-          savings: savings,
-          purpose: purpose,
-          preferredBedrooms: preferredBedrooms,
-          preferredState: preferredState,
-          importantFactors: importantFactors,
-        );
       }
+
+      return _generateFallbackAnalysis(
+        property: property,
+        afford: afford,
+        buyer: buyer,
+        isAffordable: isAffordable,
+        matchDetails: matchDetails,
+        purpose: purpose,
+        preferredBedrooms: preferredBedrooms,
+        preferredState: preferredState,
+        importantFactors: importantFactors,
+      );
     } catch (e) {
       return _generateFallbackAnalysis(
         property: property,
-        matchScore: matchScore,
+        afford: afford,
+        buyer: buyer,
         isAffordable: isAffordable,
         matchDetails: matchDetails,
-        monthlyIncome: monthlyIncome,
-        commitments: commitments,
-        savings: savings,
         purpose: purpose,
         preferredBedrooms: preferredBedrooms,
         preferredState: preferredState,
@@ -123,17 +126,12 @@ Keep your response concise, professional, and actionable. Use bullet points for 
     }
   }
 
-  // ============================================================
-  // 备用分析（当 OpenAI API 不可用时）
-  // ============================================================
   static String _generateFallbackAnalysis({
     required PropertyModel property,
-    required double matchScore,
+    required PropertyAffordability afford,
+    required BuyerAffordabilitySnapshot buyer,
     required bool isAffordable,
     required Map<String, dynamic> matchDetails,
-    required double monthlyIncome,
-    required double commitments,
-    required double savings,
     required String purpose,
     required int preferredBedrooms,
     required String preferredState,
@@ -141,45 +139,51 @@ Keep your response concise, professional, and actionable. Use bullet points for 
   }) {
     final buffer = StringBuffer();
 
-    buffer.writeln('🏠 **Property Match Analysis**\n');
-
-    // 匹配分数
-    buffer.writeln('📊 **Match Score: ${matchScore.toStringAsFixed(0)}%**');
-    if (matchScore >= 70) {
-      buffer.writeln('✅ This property is a great match for you!');
-    } else if (matchScore >= 40) {
-      buffer.writeln('⚠️ This property partially matches your preferences.');
+    buffer.writeln('**Loan & DSR Assessment**\n');
+    if (afford.monthlyInstallment > 0) {
+      buffer.writeln(
+        '• Estimated monthly installment: RM ${MoneyFormat.groupInteger('${afford.monthlyInstallment.round()}')} '
+        '(${LoanCalculator.defaultLtvRatio * 100}% LTV, ${LoanCalculator.defaultTenureYears} years @ ${LoanCalculator.defaultAnnualRatePercent}%)',
+      );
+      buffer.writeln(
+        '• DSR after this loan: ${afford.dsrPercent.toStringAsFixed(1)}% '
+        '(current ${buyer.currentDsrPercent.toStringAsFixed(1)}% before new loan)',
+      );
+      buffer.writeln(
+        '• Remaining disposable income: RM ${afford.remainingDisposable.round()}',
+      );
     } else {
-      buffer.writeln('❌ This property may not be suitable for your needs.');
+      buffer.writeln('• Price unavailable — cannot estimate loan.');
     }
     buffer.writeln('');
 
-    // 可负担性
-    buffer.writeln('💰 **Affordability Assessment**');
+    buffer.writeln('**Budget Fit**\n');
     if (isAffordable) {
-      buffer.writeln('✅ This property is within your budget range.');
+      buffer.writeln('• Price is within your recommended budget range.');
     } else {
-      final diff = (property.price ?? 0) - (monthlyIncome * 12 * 0.3);
-      buffer.writeln('⚠️ This property is RM ${diff.toStringAsFixed(0)} above your recommended budget.');
+      final price = property.price ?? 0;
+      final over = price - buyer.recommendedBudget;
+      buffer.writeln(
+        '• Price exceeds recommended budget by RM ${over > 0 ? over : 0}.',
+      );
     }
     buffer.writeln('');
 
-    // 详细匹配
-    buffer.writeln('📋 **Match Details**');
-    buffer.writeln('• Price Match: ${(matchDetails['priceMatch'] * 100).toStringAsFixed(0)}%');
-    buffer.writeln('• Bedroom Match: ${(matchDetails['bedroomMatch'] * 100).toStringAsFixed(0)}%');
-    buffer.writeln('• Type Match: ${(matchDetails['typeMatch'] * 100).toStringAsFixed(0)}%');
-    buffer.writeln('• Location Match: ${(matchDetails['stateMatch'] * 100).toStringAsFixed(0)}%');
+    buffer.writeln('**Preference Fit** ($purpose)\n');
+    buffer.writeln('• Preferred area: $preferredState');
+    buffer.writeln('• Bedrooms: ${property.bedrooms ?? '?'} vs $preferredBedrooms preferred');
+    if (importantFactors.isNotEmpty) {
+      buffer.writeln('• Important factors: ${importantFactors.join(', ')}');
+    }
     buffer.writeln('');
 
-    // 建议
-    buffer.writeln('💡 **Recommendation**');
-    if (matchScore >= 70 && isAffordable) {
-      buffer.writeln('This property is highly recommended! Consider scheduling a viewing.');
-    } else if (matchScore >= 40 && isAffordable) {
-      buffer.writeln('This property has potential. Consider if you can compromise on some preferences.');
+    buffer.writeln('**Recommendation**\n');
+    if (afford.dsrPercent <= 70 && isAffordable) {
+      buffer.writeln('Affordable on paper — worth a viewing if location and layout suit you.');
+    } else if (afford.dsrPercent > 70) {
+      buffer.writeln('DSR may be high for bank approval. Consider a lower price or longer tenure.');
     } else {
-      buffer.writeln('You may want to explore other properties that better match your criteria.');
+      buffer.writeln('Review other options or adjust your budget before committing.');
     }
 
     return buffer.toString();
@@ -187,12 +191,11 @@ Keep your response concise, professional, and actionable. Use bullet points for 
 
   static String _buildPrompt({
     required PropertyModel property,
+    required PropertyAffordability afford,
+    required BuyerAffordabilitySnapshot buyer,
     required double matchScore,
     required bool isAffordable,
     required Map<String, dynamic> matchDetails,
-    required double monthlyIncome,
-    required double commitments,
-    required double savings,
     required String purpose,
     required int preferredBedrooms,
     required String preferredState,
@@ -206,36 +209,32 @@ Keep your response concise, professional, and actionable. Use bullet points for 
     final builtUp = property.builtUp ?? 'Unknown';
 
     return '''
-Please analyze this property match:
+Analyze this property for the buyer. Lead with loan/DSR, not match scores.
 
-PROPERTY DETAILS:
+PROPERTY:
 - Address: $propertyAddress
 - Price: RM ${propertyPrice.toStringAsFixed(0)}
-- Type: $propertyType
-- Bedrooms: $bedrooms
-- Bathrooms: $bathrooms
-- Built-up: $builtUp
+- Type: $propertyType | Beds: $bedrooms | Baths: $bathrooms | Size: $builtUp
 
-USER'S FINANCIAL SITUATION:
-- Monthly Income: RM ${monthlyIncome.toStringAsFixed(0)}
-- Monthly Commitments: RM ${commitments.toStringAsFixed(0)}
-- Savings: RM ${savings.toStringAsFixed(0)}
+BUYER FINANCES:
+${buyer.formatForPrompt()}
+- Estimated loan (90% LTV): RM ${afford.loanAmount.round()}
+- Estimated monthly installment: RM ${afford.monthlyInstallment.round()}
+- DSR if purchased: ${afford.dsrPercent.toStringAsFixed(1)}%
+- Remaining disposable: RM ${afford.remainingDisposable.round()}
+
+BUYER PREFERENCES:
 - Purpose: $purpose
+- Preferred bedrooms: $preferredBedrooms
+- Preferred state/area: $preferredState
+- Important factors: ${importantFactors.join(', ')}
 
-USER'S PREFERENCES:
-- Preferred Bedrooms: $preferredBedrooms
-- Preferred State: $preferredState
-- Important Factors: ${importantFactors.join(', ')}
+HINTS (do not repeat verbatim as your main conclusion):
+- Local match score hint: ${matchScore.toStringAsFixed(0)}%
+- Within recommended budget: ${isAffordable ? 'Yes' : 'No'}
+- Price/bedroom/type/location hint scores available but secondary to DSR math.
 
-MATCH ANALYSIS RESULTS:
-- Overall Match Score: ${matchScore.toStringAsFixed(0)}%
-- Price Match: ${(matchDetails['priceMatch'] * 100).toStringAsFixed(0)}%
-- Bedroom Match: ${(matchDetails['bedroomMatch'] * 100).toStringAsFixed(0)}%
-- Type Match: ${(matchDetails['typeMatch'] * 100).toStringAsFixed(0)}%
-- Location Match: ${(matchDetails['stateMatch'] * 100).toStringAsFixed(0)}%
-- Is Affordable: ${isAffordable ? 'Yes' : 'No'}
-
-Based on this information, provide a professional analysis and recommendation for the user.
+Provide your advisor analysis.
 ''';
   }
 }

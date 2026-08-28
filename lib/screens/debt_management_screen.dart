@@ -6,6 +6,9 @@ import '../providers/financial_provider.dart';
 import '../services/debt_service.dart';
 import '../services/financial_service.dart';
 import '../services/supabase_service.dart';
+import '../utils/ai_access_prompt.dart';
+import '../utils/money_format.dart';
+import '../widgets/money_form_field.dart';
 import 'dashboard_screen.dart';
 import 'saved_properties_screen.dart';
 import 'profile_screen.dart';
@@ -34,8 +37,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
   List<DebtModel> _debts = [];
   bool _isLoading = true;
 
-  // 底部导航索引
-  int _currentIndex = 3; // Profile
+  int _currentIndex = 3;
 
   final List<String> debtTypes = const [
     'Car Loan',
@@ -46,18 +48,13 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     'Other'
   ];
 
-  // ============================================================
-  // 底部导航切换
-  // ============================================================
   void _onTabTapped(int index) {
     if (index == 0) {
-      // Home
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
     } else if (index == 1) {
-      // AI
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final financial = Provider.of<FinancialProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
@@ -67,9 +64,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         return;
       }
       if (financial.monthlySalary <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete your financial assessment first')),
-        );
+        showCompleteFinancialAssessmentPrompt(context);
         return;
       }
       Navigator.pushReplacement(
@@ -79,7 +74,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         ),
       );
     } else if (index == 2) {
-      // Saved
       final auth = Provider.of<AuthProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,7 +86,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         MaterialPageRoute(builder: (_) => const SavedPropertiesScreen()),
       );
     } else if (index == 3) {
-      // Profile
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const ProfileScreen()),
@@ -123,17 +116,26 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     if (userId != null && userId.isNotEmpty) {
       try {
         _debts = await _debtService.getDebtsByUserId(userId);
+        if (!mounted) return;
 
-        // 计算总 commitments
         double totalCommitments = _debts.fold(0, (sum, d) => sum + d.monthlyPayment);
 
-        // 更新 FinancialProvider - 使用 recalculate 方法
         final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
-        financialProvider.commitments = totalCommitments;
-        // 使用公开的 recalculate 方法
-        financialProvider.recalculate();
+        financialProvider.replaceDebts(
+          _debts
+              .map(
+                (debt) => Debt(
+                  type: debt.type,
+                  name: debt.name,
+                  totalAmount: debt.totalAmount,
+                  monthlyPayment: debt.monthlyPayment,
+                  interestRate: debt.interestRate,
+                  remainingMonths: debt.remainingMonths,
+                ),
+              )
+              .toList(),
+        );
 
-        // 同时更新数据库中的 financial_profile
         await _updateFinancialProfileCommitments(userId, totalCommitments);
       } catch (e) {
         debugPrint('Load debts error: $e');
@@ -145,7 +147,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     }
   }
 
-  // 更新 Financial Profile 中的 commitments
   Future<void> _updateFinancialProfileCommitments(String userId, double totalCommitments) async {
     try {
       final existingProfile = await _financialService.getProfileByUserId(userId);
@@ -174,10 +175,11 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
 
   String? _validateNumber(String? value, String fieldName) {
     if (value == null || value.isEmpty) return "Please enter $fieldName";
-    if (double.tryParse(value) == null) {
+    final amount = MoneyFormat.parse(value);
+    if (amount == null) {
       return "Please enter a valid number";
     }
-    if (double.parse(value) < 0) {
+    if (amount < 0) {
       return "$fieldName cannot be negative";
     }
     return null;
@@ -210,8 +212,8 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
       userId: userId,
       type: _selectedDebtType,
       name: _selectedDebtType == 'Other' ? _nameController.text : _selectedDebtType,
-      totalAmount: double.parse(_totalAmountController.text),
-      monthlyPayment: double.parse(_monthlyPaymentController.text),
+      totalAmount: MoneyFormat.parseOrZero(_totalAmountController.text),
+      monthlyPayment: MoneyFormat.parseOrZero(_monthlyPaymentController.text),
       interestRate: double.parse(_interestRateController.text),
       remainingMonths: int.parse(_remainingMonthsController.text),
     );
@@ -277,8 +279,8 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     final debt = _debts[index];
     _selectedDebtType = debt.type;
     _nameController.text = debt.type == 'Other' ? debt.name : '';
-    _totalAmountController.text = debt.totalAmount.toString();
-    _monthlyPaymentController.text = debt.monthlyPayment.toString();
+    _totalAmountController.text = MoneyFormat.display(debt.totalAmount);
+    _monthlyPaymentController.text = MoneyFormat.display(debt.monthlyPayment);
     _interestRateController.text = debt.interestRate.toString();
     _remainingMonthsController.text = debt.remainingMonths.toString();
     showDialog(
@@ -317,18 +319,14 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
                   decoration: const InputDecoration(labelText: 'Debt Name'),
                   validator: (value) => value!.isEmpty ? 'Please enter debt name' : null,
                 ),
-              TextFormField(
+              MoneyFormField(
                 controller: _totalAmountController,
                 decoration: const InputDecoration(labelText: 'Total Amount (RM)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) => _validateNumber(value, "Total Amount"),
               ),
-              TextFormField(
+              MoneyFormField(
                 controller: _monthlyPaymentController,
                 decoration: const InputDecoration(labelText: 'Monthly Payment (RM)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) => _validateNumber(value, "Monthly Payment"),
               ),
               TextFormField(
@@ -526,9 +524,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
           ),
         ],
       ),
-      // ============================================================
-      // 底部导航栏
-      // ============================================================
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,

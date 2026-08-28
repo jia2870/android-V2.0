@@ -20,7 +20,6 @@ class PropertyModel {
   final double? lng;
   final DateTime? scrapedAt;
 
-  // 系统提供的图片 URL 前缀（需要过滤掉）
   static const List<String> _systemImagePrefixes = [
     'https://cdn.pgimgs.com/hive-ui/static/',
     'https://cdn.pgimgs.com/hive-ui/',
@@ -72,7 +71,6 @@ class PropertyModel {
     );
   }
 
-  // 获取格式化价格
   String get formattedPrice {
     if (price != null) {
       if (price! >= 1000000) {
@@ -85,7 +83,6 @@ class PropertyModel {
     return 'Price on Request';
   }
 
-  // 获取价格显示
   String get priceDisplay {
     if (price != null) {
       return 'RM ${price!.toStringAsFixed(0)}';
@@ -93,13 +90,11 @@ class PropertyModel {
     return 'Price on Request';
   }
 
-  // 获取房产类型图标
   IconData get propertyTypeIcon {
     if (propertyType == null || propertyType!.isEmpty) return Icons.home;
 
     final types = propertyType!.split(',').map((s) => s.trim().toLowerCase()).toList();
 
-    // 按优先级检查
     for (final type in types) {
       if (type.contains('bungalow')) {
         return Icons.villa;
@@ -112,7 +107,6 @@ class PropertyModel {
       }
     }
 
-    // 如果没有匹配，使用第一个类型匹配
     final firstType = types.first;
     if (firstType.contains('apartment')) return Icons.apartment;
     if (firstType.contains('condo')) return Icons.apartment;
@@ -123,35 +117,31 @@ class PropertyModel {
     return Icons.home;
   }
 
-  // 获取设施列表
   List<String> get facilityList {
     if (facilities == null || facilities!.isEmpty) return [];
     return facilities!.split('|').where((f) => f.trim().isNotEmpty).toList();
   }
 
-  // 获取图片列表 - 过滤掉系统图片，只保留 CSV 提供的图片
   List<String> get photoUrlList {
     if (photoUrls == null || photoUrls!.isEmpty) return [];
 
-    final urls = photoUrls!.split('|')
-        .where((f) => f.trim().isNotEmpty)
+    return photoUrls!
+        .split('|')
+        .map((f) => f.trim())
+        .where((url) {
+          if (url.isEmpty) return false;
+          final lower = url.toLowerCase();
+          if (!(lower.startsWith('https://') || lower.startsWith('http://'))) {
+            return false;
+          }
+          for (final prefix in _systemImagePrefixes) {
+            if (url.startsWith(prefix)) return false;
+          }
+          return true;
+        })
         .toList();
-
-    // 过滤掉系统图片
-    return urls.where((url) {
-      for (final prefix in _systemImagePrefixes) {
-        if (url.startsWith(prefix)) {
-          return false;
-        }
-      }
-      // 保留真实的房产图片（通常包含 my1-cdn.pgimgs.com 或类似域名）
-      return url.contains('pgimgs.com') ||
-          url.contains('property') ||
-          url.contains('listing');
-    }).toList();
   }
 
-  // 获取简短地址
   String get shortAddress {
     if (fullAddress != null && fullAddress!.isNotEmpty) {
       final parts = fullAddress!.split(',');
@@ -163,7 +153,6 @@ class PropertyModel {
     return state ?? 'Location not specified';
   }
 
-  // 获取主要地址（用于标题）
   String get mainTitle {
     if (fullAddress != null && fullAddress!.isNotEmpty) {
       return fullAddress!.split(',').first.trim();

@@ -13,11 +13,6 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Flutter Localizations - 用于多语言支持
-  flutter_localizations:
-    sdk: flutter
-
-
   flex_color_scheme: ^7.3.1
 
   # Cupertino Icons - iOS风格图标
@@ -32,8 +27,8 @@ dependencies:
   # HTTP & API - HTTP请求
   http: ^1.2.2
 
-  # Date Formatting - 日期格式化 (必须使用 0.20.2 以兼容 flutter_localizations)
-  intl: ^0.20.2  # ✅ 修改这里
+  # Number and currency formatting
+  intl: ^0.20.2
 
   # Supabase - 后端服务
   supabase_flutter: ^2.8.0
@@ -43,6 +38,8 @@ dependencies:
 
   # Secure Storage - 安全存储 (可选但推荐)
   flutter_secure_storage: ^9.2.2
+  image_picker: ^1.2.3
+  connectivity_plus: ^7.3.1
 
 dev_dependencies:
   flutter_test:
@@ -50,6 +47,16 @@ dev_dependencies:
 
   # Flutter Lints - 代码规范
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/app_logo.jpeg
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/app_logo.jpeg
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/images/app_logo.jpeg

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/financial_provider.dart';
+import '../utils/money_format.dart';
+import '../widgets/money_form_field.dart';
 
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
@@ -19,16 +20,17 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   void initState() {
     super.initState();
     final provider = Provider.of<FinancialProvider>(context, listen: false);
-    _savingsController.text = provider.totalSavings > 0 ? provider.totalSavings.toString() : "";
-    _downPaymentController.text = provider.downPaymentBudget > 0 ? provider.downPaymentBudget.toString() : "";
+    _savingsController.text = MoneyFormat.toField(provider.totalSavings);
+    _downPaymentController.text = MoneyFormat.toField(provider.downPaymentBudget);
   }
 
   String? _validateNumber(String? value, String fieldName) {
     if (value == null || value.isEmpty) return null;
-    if (double.tryParse(value) == null) {
+    final amount = MoneyFormat.parse(value);
+    if (amount == null) {
       return "Please enter a valid number";
     }
-    if (double.parse(value) < 0) {
+    if (amount < 0) {
       return "Amount cannot be negative";
     }
     return null;
@@ -65,7 +67,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               Text(
-                                'RM ${provider.totalSavings.toStringAsFixed(0)}',
+                                'RM ${MoneyFormat.display(provider.totalSavings)}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -83,7 +85,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               Text(
-                                'RM ${provider.downPaymentBudget.toStringAsFixed(0)}',
+                                'RM ${MoneyFormat.display(provider.downPaymentBudget)}',
                                 style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -102,27 +104,23 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  MoneyFormField(
                     controller: _savingsController,
                     decoration: const InputDecoration(
                       labelText: 'Total Savings (RM)',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.savings),
                     ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: (value) => _validateNumber(value, "Savings"),
                   ),
                   const SizedBox(height: 16),
-                  TextFormField(
+                  MoneyFormField(
                     controller: _downPaymentController,
                     decoration: const InputDecoration(
                       labelText: 'Down Payment Budget (RM)',
                       border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.attach_money),
                     ),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     validator: (value) => _validateNumber(value, "Down Payment"),
                   ),
                   const SizedBox(height: 20),
@@ -131,8 +129,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     child: ElevatedButton(
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
-                          final savings = double.tryParse(_savingsController.text) ?? 0;
-                          final downPayment = double.tryParse(_downPaymentController.text) ?? 0;
+                          final savings = MoneyFormat.parseOrZero(_savingsController.text);
+                          final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
 
                           provider.updateSavings(savings);
                           provider.updateDownPayment(downPayment);
