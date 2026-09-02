@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/property_model.dart';
 import '../services/saved_property_service.dart';
 import '../services/property_service.dart';
 import '../providers/auth_provider.dart';
-import '../providers/financial_provider.dart';
+import '../utils/device_layout.dart';
+import '../utils/money_format.dart';
+import '../widgets/money_form_field.dart';
+import '../widgets/adaptive_nav_scaffold.dart';
+import '../widgets/property_filter_dialog.dart';
 import 'property_detail_screen.dart';
 import 'login_screen.dart';
-import 'dashboard_screen.dart';
-import 'profile_screen.dart';
-import 'ai_advisor_screen.dart';
 
 class SavedPropertiesScreen extends StatefulWidget {
   const SavedPropertiesScreen({super.key});
@@ -43,15 +43,14 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
   List<String> _states = [];
   List<String> _districts = [];
   final List<String> _propertyTypes = const [
-    'Apartment', 'Condominium', 'Terrace', 'Semi-D', 'Bungalow'
+    'Apartment',
+    'Condominium',
+    'Terrace',
+    'Semi-D',
+    'Bungalow',
   ];
-  final List<String> _tenureTypes = const [
-    'Freehold', 'Leasehold'
-  ];
+  final List<String> _tenureTypes = const ['Freehold', 'Leasehold'];
   final List<int> _bedroomOptions = const [1, 2, 3, 4, 5];
-
-  // 底部导航索引
-  static const int _currentIndex = 2; // Saved
 
   @override
   void initState() {
@@ -85,7 +84,8 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       _filteredProperties = _properties;
       if (_properties.isEmpty && mounted) {
         setState(() {
-          _errorMessage = 'No saved properties yet.\nStart exploring and save your favorites!';
+          _errorMessage =
+              'No saved properties yet.\nStart exploring and save your favorites!';
         });
       }
     } catch (e) {
@@ -142,10 +142,13 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       if (_minPrice != null && (property.price ?? 0) < _minPrice!) return false;
       if (_maxPrice != null && (property.price ?? 0) > _maxPrice!) return false;
 
-      if (_selectedBedrooms != null && (property.bedrooms ?? 0) < _selectedBedrooms!) return false;
+      if (_selectedBedrooms != null &&
+          (property.bedrooms ?? 0) < _selectedBedrooms!)
+        return false;
 
       if (_selectedPropertyType != null && _selectedPropertyType!.isNotEmpty) {
-        if (!(property.propertyType?.contains(_selectedPropertyType!) ?? false)) return false;
+        if (!(property.propertyType?.contains(_selectedPropertyType!) ?? false))
+          return false;
       }
 
       if (_selectedTenure != null && _selectedTenure!.isNotEmpty) {
@@ -161,7 +164,8 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       if (filtered.isEmpty && _properties.isNotEmpty) {
         _errorMessage = 'No saved properties match your filters';
       } else if (filtered.isEmpty && _properties.isEmpty) {
-        _errorMessage = 'No saved properties yet.\nStart exploring and save your favorites!';
+        _errorMessage =
+            'No saved properties yet.\nStart exploring and save your favorites!';
       } else {
         _errorMessage = null;
       }
@@ -181,6 +185,52 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       _searchController.clear();
       _minPriceController.clear();
       _maxPriceController.clear();
+    });
+    _searchProperties();
+  }
+
+  Future<void> _showFilterDialog() async {
+    final selection = await showDialog<PropertyFilterSelection>(
+      context: context,
+      builder: (_) => PropertyFilterDialog(
+        states: _states,
+        initialDistricts: _districts,
+        propertyTypes: _propertyTypes,
+        tenureTypes: _tenureTypes,
+        bedroomOptions: _bedroomOptions,
+        loadDistricts: _propertyService.getDistrictsByState,
+        initialState: _selectedState,
+        initialDistrict: _selectedDistrict,
+        initialPropertyType: _selectedPropertyType,
+        initialTenure: _selectedTenure,
+        initialBedrooms: _selectedBedrooms,
+        initialMinPrice: _minPrice,
+        initialMaxPrice: _maxPrice,
+      ),
+    );
+    if (!mounted || selection == null) return;
+
+    if (selection.clearAll) {
+      _clearFilters();
+      return;
+    }
+
+    setState(() {
+      _selectedState = selection.state;
+      _selectedDistrict = selection.district;
+      _selectedPropertyType = selection.propertyType;
+      _selectedTenure = selection.tenure;
+      _selectedBedrooms = selection.bedrooms;
+      _minPrice = selection.minPrice;
+      _maxPrice = selection.maxPrice;
+      _districts = selection.districts;
+      _minPriceController.text = selection.minPrice == null
+          ? ''
+          : MoneyFormat.toField(selection.minPrice!.toDouble());
+      _maxPriceController.text = selection.maxPrice == null
+          ? ''
+          : MoneyFormat.toField(selection.maxPrice!.toDouble());
+      _showFilters = false;
     });
     _searchProperties();
   }
@@ -209,64 +259,27 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
         _properties.removeWhere((p) => p.listingId == listingId);
         _filteredProperties.removeWhere((p) => p.listingId == listingId);
         if (_properties.isEmpty) {
-          _errorMessage = 'No saved properties yet.\nStart exploring and save your favorites!';
+          _errorMessage =
+              'No saved properties yet.\nStart exploring and save your favorites!';
         }
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Removed from favorites')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Removed from favorites')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
 
-  // ============================================================
-  // 底部导航切换
-  // ============================================================
   void _onTabTapped(int index) {
-    if (index == 0) {
-      // Home
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } else if (index == 1) {
-      // AI
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final financial = Provider.of<FinancialProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      if (financial.monthlySalary <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete your financial assessment first')),
-        );
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const AIAdvisorScreen(property: null),
-        ),
-      );
-    } else if (index == 2) {
-      // Saved - 已经是这个页面
-    } else if (index == 3) {
-      // Profile
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      );
-    }
+    if (index == AppNavIndex.saved) return;
+    handleAppNavigation(context, index);
   }
 
   @override
@@ -274,7 +287,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
     final auth = Provider.of<AuthProvider>(context);
 
     if (!auth.isLoggedIn) {
-      return Scaffold(
+      return AdaptiveNavScaffold(
+        currentIndex: AppNavIndex.saved,
+        onTap: _onTabTapped,
         appBar: AppBar(title: const Text('Saved Properties')),
         body: const Center(
           child: Column(
@@ -291,11 +306,18 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ],
           ),
         ),
-        bottomNavigationBar: _buildBottomNavBar(),
       );
     }
 
-    return Scaffold(
+    final compactHeight = MediaQuery.sizeOf(context).height < 500;
+    final tabletMode = isTabletUiActive(context);
+    final wideLandscape =
+        tabletMode &&
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+
+    return AdaptiveNavScaffold(
+      currentIndex: AppNavIndex.saved,
+      onTap: _onTabTapped,
       appBar: AppBar(
         title: const Text('Saved Properties'),
         actions: [
@@ -317,18 +339,29 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(_showFilters ? Icons.filter_list : Icons.filter_list_off),
+            icon: Icon(
+              wideLandscape
+                  ? Icons.filter_list
+                  : (_showFilters ? Icons.filter_list : Icons.filter_list_off),
+            ),
             onPressed: () {
-              setState(() => _showFilters = !_showFilters);
+              if (wideLandscape) {
+                _showFilterDialog();
+              } else {
+                setState(() => _showFilters = !_showFilters);
+              }
             },
+            tooltip: wideLandscape ? 'Open filters' : 'Show or hide filters',
           ),
         ],
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: compactHeight ? 8 : 16,
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -342,12 +375,12 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                       ),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _searchProperties();
-                        },
-                      )
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                _searchProperties();
+                              },
+                            )
                           : null,
                     ),
                     onSubmitted: (_) => _searchProperties(),
@@ -362,10 +395,8 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
           ),
 
-          // Filters
-          if (_showFilters) _buildFilters(),
+          if (_showFilters && !wideLandscape) _buildFilters(),
 
-          // Results count
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
@@ -384,115 +415,119 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
           ),
 
-          // Error message
           if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: _errorMessage!.contains('No saved properties')
-                      ? Colors.blue[50]
-                      : Colors.red[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(compactHeight ? 12 : 16),
+                  decoration: BoxDecoration(
                     color: _errorMessage!.contains('No saved properties')
-                        ? Colors.blue[200]!
-                        : Colors.red[200]!,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(
-                      _errorMessage!.contains('No saved properties')
-                          ? Icons.favorite_border
-                          : Icons.error_outline,
+                        ? Colors.blue[50]
+                        : Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
                       color: _errorMessage!.contains('No saved properties')
-                          ? Colors.blue[400]
-                          : Colors.red[400],
-                      size: 40,
+                          ? Colors.blue[200]!
+                          : Colors.red[200]!,
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _errorMessage!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        _errorMessage!.contains('No saved properties')
+                            ? Icons.favorite_border
+                            : Icons.error_outline,
                         color: _errorMessage!.contains('No saved properties')
-                            ? Colors.blue[800]
-                            : Colors.red[800],
+                            ? Colors.blue[400]
+                            : Colors.red[400],
+                        size: compactHeight ? 32 : 40,
                       ),
-                    ),
-                    if (_errorMessage!.contains('No saved properties'))
-                      const SizedBox(height: 12),
-                    if (_errorMessage!.contains('No saved properties'))
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Browse Properties'),
+                      SizedBox(height: compactHeight ? 4 : 8),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _errorMessage!.contains('No saved properties')
+                              ? Colors.blue[800]
+                              : Colors.red[800],
+                        ),
                       ),
-                  ],
+                      if (_errorMessage!.contains('No saved properties'))
+                        SizedBox(height: compactHeight ? 6 : 12),
+                      if (_errorMessage!.contains('No saved properties'))
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Browse Properties'),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
 
-          // Results
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredProperties.isEmpty && _properties.isEmpty
-                ? const SizedBox()
-                : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _filteredProperties.length,
-              itemBuilder: (context, index) {
-                final property = _filteredProperties[index];
-                return _buildPropertyCard(property);
-              },
+          if (_errorMessage == null)
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filteredProperties.isEmpty && _properties.isEmpty
+                  ? const SizedBox()
+                  : tabletMode
+                  ? _buildTabletPropertyGrid()
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredProperties.length,
+                      itemBuilder: (context, index) {
+                        final property = _filteredProperties[index];
+                        return _buildPropertyCard(property);
+                      },
+                    ),
             ),
-          ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
-  Widget _buildBottomNavBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: _currentIndex,
-      selectedItemColor: Colors.blue,
-      unselectedItemColor: Colors.grey,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.search),
-          label: "Home",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.smart_toy),
-          label: "AI",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.favorite),
-          label: "Saved",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person),
-          label: "Profile",
-        ),
-      ],
-      onTap: _onTabTapped,
+  Widget _buildTabletPropertyGrid() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 16.0;
+        const horizontalPadding = 32.0;
+        final usableWidth = (constraints.maxWidth - horizontalPadding).clamp(
+          0.0,
+          double.infinity,
+        );
+        final crossAxisCount = usableWidth >= 900 ? 3 : 2;
+        final itemWidth =
+            (usableWidth - gap * (crossAxisCount - 1)) / crossAxisCount;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            children: [
+              for (final property in _filteredProperties)
+                SizedBox(
+                  width: itemWidth,
+                  child: _buildPropertyCard(property, compact: true),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
   Widget _buildFilters() {
-    return Container(
+    final panel = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[200]!),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
       ),
       child: Column(
         children: [
@@ -527,7 +562,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
             items: [
               const DropdownMenuItem(value: null, child: Text('All Districts')),
-              ..._districts.map((d) => DropdownMenuItem(value: d, child: Text(d))),
+              ..._districts.map(
+                (d) => DropdownMenuItem(value: d, child: Text(d)),
+              ),
             ],
             onChanged: (value) => setState(() => _selectedDistrict = value),
           ),
@@ -540,7 +577,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
             items: [
               const DropdownMenuItem(value: null, child: Text('All Types')),
-              ..._propertyTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+              ..._propertyTypes.map(
+                (t) => DropdownMenuItem(value: t, child: Text(t)),
+              ),
             ],
             onChanged: (value) => setState(() => _selectedPropertyType = value),
           ),
@@ -553,7 +592,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
             items: [
               const DropdownMenuItem(value: null, child: Text('All Tenure')),
-              ..._tenureTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))),
+              ..._tenureTypes.map(
+                (t) => DropdownMenuItem(value: t, child: Text(t)),
+              ),
             ],
             onChanged: (value) => setState(() => _selectedTenure = value),
           ),
@@ -566,7 +607,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
             ),
             items: [
               const DropdownMenuItem(value: null, child: Text('Any')),
-              ..._bedroomOptions.map((b) => DropdownMenuItem(value: b, child: Text('$b+'))),
+              ..._bedroomOptions.map(
+                (b) => DropdownMenuItem(value: b, child: Text('$b+')),
+              ),
             ],
             onChanged: (value) => setState(() => _selectedBedrooms = value),
           ),
@@ -574,33 +617,29 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: MoneyFormField(
                   controller: _minPriceController,
                   decoration: const InputDecoration(
                     labelText: 'Min Price (RM)',
                     border: OutlineInputBorder(),
                     prefixText: 'RM ',
                   ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (value) {
-                    _minPrice = value.isEmpty ? null : int.tryParse(value);
+                    _minPrice = MoneyFormat.parse(value)?.round();
                   },
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
+                child: MoneyFormField(
                   controller: _maxPriceController,
                   decoration: const InputDecoration(
                     labelText: 'Max Price (RM)',
                     border: OutlineInputBorder(),
                     prefixText: 'RM ',
                   ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: (value) {
-                    _maxPrice = value.isEmpty ? null : int.tryParse(value);
+                    _maxPrice = MoneyFormat.parse(value)?.round();
                   },
                 ),
               ),
@@ -627,16 +666,30 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
         ],
       ),
     );
+
+    if (MediaQuery.sizeOf(context).height < 500) {
+      final height = (MediaQuery.sizeOf(context).height * 0.35).clamp(
+        100.0,
+        180.0,
+      );
+      return SizedBox(
+        height: height,
+        child: SingleChildScrollView(child: panel),
+      );
+    }
+
+    return panel;
   }
 
-  Widget _buildPropertyCard(PropertyModel property) {
+  Widget _buildPropertyCard(PropertyModel property, {bool compact = false}) {
     final photoList = property.photoUrlList;
     final displayPrice = property.price != null
         ? property.formattedPrice
         : 'Price on Request';
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: compact ? 0 : 16),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -647,28 +700,36 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
           );
         },
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              height: 180,
+              height: compact ? 140 : 180,
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(8),
+                ),
                 image: photoList.isNotEmpty
                     ? DecorationImage(
-                  image: NetworkImage(photoList.first),
-                  fit: BoxFit.cover,
-                )
+                        image: NetworkImage(photoList.first),
+                        fit: BoxFit.cover,
+                      )
                     : null,
                 color: Colors.grey[200],
               ),
               child: photoList.isEmpty
-                  ? const Icon(Icons.home, size: 60, color: Colors.grey)
+                  ? Icon(
+                      Icons.home,
+                      size: compact ? 48 : 60,
+                      color: Colors.grey,
+                    )
                   : null,
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(compact ? 10 : 12),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -706,8 +767,13 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                         Text('${property.bathrooms}'),
                         const SizedBox(width: 12),
                       ],
-                      if (property.builtUp != null && property.builtUp!.isNotEmpty) ...[
-                        const Icon(Icons.photo_size_select_actual, size: 16, color: Colors.grey),
+                      if (property.builtUp != null &&
+                          property.builtUp!.isNotEmpty) ...[
+                        const Icon(
+                          Icons.photo_size_select_actual,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         const SizedBox(width: 4),
                         Text(property.builtUp!),
                       ],
@@ -725,7 +791,10 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(4),
@@ -745,7 +814,9 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                             context: context,
                             builder: (context) => AlertDialog(
                               title: const Text('Remove from Favorites'),
-                              content: const Text('Are you sure you want to remove this property from your favorites?'),
+                              content: const Text(
+                                'Are you sure you want to remove this property from your favorites?',
+                              ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context),
@@ -778,7 +849,6 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
   }
 }
 
-// 独立的 LoginButton widget
 class LoginButton extends StatelessWidget {
   const LoginButton({super.key});
 

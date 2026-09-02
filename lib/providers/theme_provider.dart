@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeProvider extends ChangeNotifier {
@@ -37,9 +38,6 @@ class ThemeProvider extends ChangeNotifier {
   bool get isDarkMode => _themeMode == ThemeMode.dark;
 }
 
-// ============================================================
-// AppTheme - Complete Theme Definitions
-// ============================================================
 class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
@@ -54,6 +52,15 @@ class AppTheme {
         elevation: 0,
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: Color(0xFFFAFAFA),
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarContrastEnforced: false,
+          systemStatusBarContrastEnforced: false,
+        ),
       ),
       scaffoldBackgroundColor: Colors.grey[50],
       cardColor: Colors.white,
@@ -178,11 +185,19 @@ class AppTheme {
         elevation: 0,
         backgroundColor: Color(0xFF1A1A2E),
         foregroundColor: Colors.white,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.light,
+          statusBarBrightness: Brightness.dark,
+          systemNavigationBarColor: Color(0xFF12121E),
+          systemNavigationBarIconBrightness: Brightness.light,
+          systemNavigationBarContrastEnforced: false,
+          systemStatusBarContrastEnforced: false,
+        ),
       ),
       scaffoldBackgroundColor: const Color(0xFF12121E),
       cardColor: const Color(0xFF1E1E2E),
       dividerColor: Colors.white24,
-      // ✅ FIX: Text Theme - Keep dark text for cards that need it, but white for general
       textTheme: const TextTheme(
         displayLarge: TextStyle(color: Colors.white),
         displayMedium: TextStyle(color: Colors.white),

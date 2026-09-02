@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="splash_background">#E8F2FF</color>
+    <color name="splash_icon_background">#FFFFFF</color>
+    <color name="ic_launcher_background">#FFFFFF</color>
+    <color name="nav_bar_light">#FAFAFA</color>
+    <color name="nav_bar_dark">#12121E</color>
+</resources>

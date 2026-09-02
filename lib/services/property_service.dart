@@ -1,25 +1,39 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/property_model.dart';
+import '../utils/connectivity_helper.dart';
+import 'local_cache_service.dart';
 import 'supabase_service.dart';
 
 class PropertyService {
   final SupabaseClient _client = SupabaseService().client;
+  final LocalCacheService _cache = LocalCacheService.instance;
 
-  // 获取所有房产
   Future<List<PropertyModel>> getAllProperties() async {
+    if (!await isDeviceOnline()) {
+      final cached = await _cache.getProperties();
+      if (cached.isNotEmpty) return cached;
+      throw Exception('No cached properties available offline');
+    }
     try {
       final response = await _client
           .from(SupabaseService.propertiesTable)
           .select()
-          .order('scraped_at', ascending: false);
+          .order('scraped_at', ascending: false)
+          .timeout(const Duration(seconds: 12));
 
-      return response.map<PropertyModel>((json) => PropertyModel.fromJson(json)).toList();
+      final properties =
+          response.map<PropertyModel>((json) => PropertyModel.fromJson(json)).toList();
+      await _cache.saveProperties(properties);
+      return properties;
     } catch (e) {
+      debugPrint('getAllProperties network error, trying cache: $e');
+      final cached = await _cache.getProperties();
+      if (cached.isNotEmpty) return cached;
       throw Exception('Failed to get properties: $e');
     }
   }
 
-  // 搜索房产 - 修复 title 列不存在的问题
   Future<List<PropertyModel>> searchProperties({
     String? query,
     String? state,
@@ -35,24 +49,20 @@ class PropertyService {
           .from(SupabaseService.propertiesTable)
           .select();
 
-      // 搜索关键字 - 使用 full_address 和 description 代替 title
       if (query != null && query.isNotEmpty) {
         queryBuilder = queryBuilder.or(
             'full_address.ilike.%$query%,description.ilike.%$query%'
         );
       }
 
-      // 州属过滤
       if (state != null && state.isNotEmpty) {
         queryBuilder = queryBuilder.eq('state', state);
       }
 
-      // 地区过滤
       if (district != null && district.isNotEmpty) {
         queryBuilder = queryBuilder.ilike('district', '%$district%');
       }
 
-      // 价格过滤
       if (minPrice != null) {
         queryBuilder = queryBuilder.gte('price', minPrice);
       }
@@ -60,17 +70,14 @@ class PropertyService {
         queryBuilder = queryBuilder.lte('price', maxPrice);
       }
 
-      // 卧室数过滤
       if (bedrooms != null) {
         queryBuilder = queryBuilder.eq('bedrooms', bedrooms);
       }
 
-      // 房产类型过滤
       if (propertyType != null && propertyType.isNotEmpty) {
         queryBuilder = queryBuilder.ilike('property_type', '%$propertyType%');
       }
 
-      // 产权过滤
       if (tenure != null && tenure.isNotEmpty) {
         queryBuilder = queryBuilder.ilike('tenure', '%$tenure%');
       }
@@ -79,11 +86,67 @@ class PropertyService {
 
       return response.map<PropertyModel>((json) => PropertyModel.fromJson(json)).toList();
     } catch (e) {
-      throw Exception('Failed to search properties: $e');
+      debugPrint('searchProperties network error, filtering cache: $e');
+      return _filterCachedProperties(
+        query: query,
+        state: state,
+        district: district,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        bedrooms: bedrooms,
+        propertyType: propertyType,
+        tenure: tenure,
+      );
     }
   }
 
-  // 根据 listing_id 获取房产详情
+  Future<List<PropertyModel>> _filterCachedProperties({
+    String? query,
+    String? state,
+    String? district,
+    int? minPrice,
+    int? maxPrice,
+    int? bedrooms,
+    String? propertyType,
+    String? tenure,
+  }) async {
+    final cached = await _cache.getProperties();
+    return cached.where((p) {
+      if (query != null && query.isNotEmpty) {
+        final q = query.toLowerCase();
+        final haystack =
+            '${p.fullAddress ?? ''} ${p.description ?? ''}'.toLowerCase();
+        if (!haystack.contains(q)) return false;
+      }
+      if (state != null && state.isNotEmpty && p.state != state) return false;
+      if (district != null &&
+          district.isNotEmpty &&
+          !(p.district ?? '').toLowerCase().contains(district.toLowerCase())) {
+        return false;
+      }
+      if (minPrice != null && (p.price == null || p.price! < minPrice)) {
+        return false;
+      }
+      if (maxPrice != null && (p.price == null || p.price! > maxPrice)) {
+        return false;
+      }
+      if (bedrooms != null && p.bedrooms != bedrooms) return false;
+      if (propertyType != null &&
+          propertyType.isNotEmpty &&
+          !(p.propertyType ?? '')
+              .toLowerCase()
+              .contains(propertyType.toLowerCase())) {
+        return false;
+      }
+      if (tenure != null &&
+          tenure.isNotEmpty &&
+          !(p.tenure ?? '').toLowerCase().contains(tenure.toLowerCase())) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
   Future<PropertyModel?> getPropertyById(String listingId) async {
     try {
       final response = await _client
@@ -95,11 +158,16 @@ class PropertyService {
       if (response == null) return null;
       return PropertyModel.fromJson(response);
     } catch (e) {
-      throw Exception('Failed to get property: $e');
+      debugPrint('getPropertyById network error, trying cache: $e');
+      final cached = await _cache.getProperties();
+      try {
+        return cached.firstWhere((p) => p.listingId == listingId);
+      } catch (_) {
+        return null;
+      }
     }
   }
 
-  // 获取州属列表
   Future<List<String>> getStates() async {
     try {
       final response = await _client
@@ -115,13 +183,25 @@ class PropertyService {
           states.add(state);
         }
       }
-      return states.toList()..sort();
+      final list = states.toList()..sort();
+      await _cache.saveStates(list);
+      return list;
     } catch (e) {
-      throw Exception('Failed to get states: $e');
+      debugPrint('getStates network error, trying cache: $e');
+      final cached = await _cache.getStates();
+      if (cached.isNotEmpty) return cached;
+      final fromProperties = await _cache.getProperties();
+      final states = fromProperties
+          .map((p) => p.state)
+          .whereType<String>()
+          .where((s) => s.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+      return states;
     }
   }
 
-  // 获取地区列表（按州属）
   Future<List<String>> getDistrictsByState(String state) async {
     try {
       final response = await _client
@@ -144,7 +224,6 @@ class PropertyService {
     }
   }
 
-  // 获取统计信息
   Future<Map<String, dynamic>> getStats() async {
     try {
       final countResponse = await _client
@@ -176,7 +255,6 @@ class PropertyService {
     }
   }
 
-  // 获取最近的房产
   Future<List<PropertyModel>> getRecentProperties({int limit = 5}) async {
     try {
       final response = await _client

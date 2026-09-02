@@ -1,12 +1,11 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../constants/env.dart';  // 添加这行
+import '../constants/env.dart';
 
 class SupabaseService {
   static final SupabaseService _instance = SupabaseService._internal();
   factory SupabaseService() => _instance;
   SupabaseService._internal();
 
-  // 使用 Env 中的配置
   static const String supabaseUrl = Env.supabaseUrl;
   static const String supabasePublishableKey = Env.supabasePublishableKey;
 
@@ -20,20 +19,15 @@ class SupabaseService {
     client = Supabase.instance.client;
   }
 
-  // 表名常量
   static const String usersTable = 'users';
   static const String financialProfilesTable = 'financial_profiles';
   static const String debtsTable = 'debts';
   static const String propertyPreferencesTable = 'property_preferences';
   static const String propertiesTable = 'properties';
-  // 在表名常量中添加
   static const String savedPropertiesTable = 'saved_properties';
   static const String populationDataTable = 'population_data';
 }
 
-// ============================================
-// Financial Profile Model
-// ============================================
 class FinancialProfileModel {
   final String id;
   final String userId;
@@ -115,9 +109,6 @@ class FinancialProfileModel {
   }
 }
 
-// ============================================
-// Debt Model
-// ============================================
 class DebtModel {
   final String id;
   final String userId;
@@ -189,9 +180,6 @@ class DebtModel {
   }
 }
 
-// ============================================
-// Property Preference Model
-// ============================================
 class PropertyPreferenceModel {
   final String id;
   final String userId;
@@ -265,9 +253,6 @@ class PropertyPreferenceModel {
   }
 }
 
-// ============================================
-// User Model (保持兼容)
-// ============================================
 class UserModel {
   final String id;
   final String name;

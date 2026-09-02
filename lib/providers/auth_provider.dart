@@ -6,6 +6,7 @@ import '../services/user_service.dart';
 import '../services/financial_service.dart';
 import '../services/debt_service.dart';
 import '../services/property_preference_service.dart';
+import '../services/local_cache_service.dart';
 import '../providers/financial_provider.dart';
 import '../providers/saved_provider.dart';
 
@@ -14,6 +15,7 @@ class AuthProvider with ChangeNotifier {
   final FinancialService _financialService = FinancialService();
   final DebtService _debtService = DebtService();
   final PropertyPreferenceService _preferenceService = PropertyPreferenceService();
+  final LocalCacheService _cache = LocalCacheService.instance;
 
   bool isLoggedIn = false;
   String userName = "Guest";
@@ -22,6 +24,7 @@ class AuthProvider with ChangeNotifier {
   String selectedState = "Selangor";
   String profilePhoto = "";
   bool isLoading = false;
+  bool isRefreshing = false;
   String? errorMessage;
   String? userId;
   BuildContext? _context;
@@ -30,42 +33,111 @@ class AuthProvider with ChangeNotifier {
     _context = context;
   }
 
+  void _applyUser(UserModel user) {
+    isLoggedIn = true;
+    userId = user.id;
+    userName = user.name;
+    email = user.email;
+    phoneNumber = user.phone;
+    selectedState = user.state;
+    profilePhoto = user.photo ?? '';
+  }
+
   Future<void> checkAuthStatus() async {
     try {
       final session = SupabaseService().client.auth.currentSession;
-      if (session != null && session.user != null) {
-        final user = await _userService.getUserByEmail(session.user.email ?? '');
-        if (user != null) {
-          isLoggedIn = true;
-          userId = user.id;
-          userName = user.name;
-          email = user.email;
-          phoneNumber = user.phone;
-          selectedState = user.state;
-          profilePhoto = user.photo ?? '';
-
-          if (_context != null) {
-            await _loadUserData(user.id);
-          }
-          notifyListeners();
-        } else {
-          // ✅ User exists in auth but not in users table - force logout
-          await forceLogout();
-        }
+      if (session == null) {
+        return;
       }
+
+      final sessionEmail = session.user.email ?? '';
+      UserModel? user;
+
+      try {
+        user = await _userService.getUserByEmail(sessionEmail);
+      } catch (e) {
+        debugPrint('checkAuthStatus network lookup failed: $e');
+      }
+
+      user ??= await _cache.getUserByEmail(sessionEmail);
+      user ??= await _cache.getUser();
+
+      if (user != null) {
+        _applyUser(user);
+        await _cache.saveUser(user);
+        if (_context != null) {
+          await _loadUserData(user.id);
+        }
+        notifyListeners();
+        return;
+      }
+
+      isLoggedIn = true;
+      userId = session.user.id;
+      email = sessionEmail;
+      userName = sessionEmail.isNotEmpty ? sessionEmail.split('@').first : 'User';
+      notifyListeners();
     } catch (e) {
       debugPrint('Check auth status error: $e');
+      final cached = await _cache.getUser();
+      if (cached != null &&
+          SupabaseService().client.auth.currentSession != null) {
+        _applyUser(cached);
+        if (_context != null) {
+          await _loadUserData(cached.id);
+        }
+        notifyListeners();
+      }
     }
   }
 
-  // Load user data to FinancialProvider
+  Future<void> refreshWhenOnline() async {
+    if (!isLoggedIn || userId == null || isRefreshing) return;
+    isRefreshing = true;
+    notifyListeners();
+    try {
+      await _syncPendingWrites(userId!);
+      await checkAuthStatus();
+      if (_context != null && userId != null) {
+        final savedProvider =
+            Provider.of<SavedProvider>(_context!, listen: false);
+        await savedProvider.init(userId!, force: true);
+      }
+    } catch (e) {
+      debugPrint('refreshWhenOnline error: $e');
+    } finally {
+      isRefreshing = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _syncPendingWrites(String uid) async {
+    try {
+      if (await _cache.hasPendingProfile(uid)) {
+        final cached = await _cache.getUser();
+        if (cached != null && cached.id == uid) {
+          await _userService.updateProfileDetails(
+            userId: uid,
+            name: cached.name,
+            phone: cached.phone,
+            state: cached.state,
+          );
+        }
+      }
+      await _financialService.syncPending(uid);
+      await _preferenceService.syncPending(uid);
+    } catch (e) {
+      debugPrint('syncPendingWrites error: $e');
+    }
+  }
+
   Future<void> _loadUserData(String userId) async {
     try {
       if (_context == null) return;
 
-      final financialProvider = Provider.of<FinancialProvider>(_context!, listen: false);
+      final financialProvider =
+          Provider.of<FinancialProvider>(_context!, listen: false);
 
-      // 1. Load financial data
       final profile = await _financialService.getProfileByUserId(userId);
       if (profile != null) {
         financialProvider.updateFinancialData(
@@ -79,25 +151,21 @@ class AuthProvider with ChangeNotifier {
         financialProvider.clearAllData();
       }
 
-      // 2. Load debt data
       final debts = await _debtService.getDebtsByUserId(userId);
-      if (debts.isNotEmpty) {
-        financialProvider.debts = [];
-        for (var debt in debts) {
-          financialProvider.addDebt(
-              Debt(
-                type: debt.type,
-                name: debt.name,
-                totalAmount: debt.totalAmount,
-                monthlyPayment: debt.monthlyPayment,
-                interestRate: debt.interestRate,
-                remainingMonths: debt.remainingMonths,
-              )
-          );
-        }
+      financialProvider.debts = [];
+      for (var debt in debts) {
+        financialProvider.addDebt(
+          Debt(
+            type: debt.type,
+            name: debt.name,
+            totalAmount: debt.totalAmount,
+            monthlyPayment: debt.monthlyPayment,
+            interestRate: debt.interestRate,
+            remainingMonths: debt.remainingMonths,
+          ),
+        );
       }
 
-      // 3. Load property preference
       final preference = await _preferenceService.getPreferenceByUserId(userId);
       if (preference != null) {
         financialProvider.updatePreferences(
@@ -114,23 +182,24 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  // ✅ Check if user exists
   Future<UserModel?> getUserByEmail(String email) async {
     try {
       return await _userService.getUserByEmail(email);
     } catch (e) {
       debugPrint('Get user by email error: $e');
-      return null;
+      return _cache.getUserByEmail(email);
     }
   }
 
-  // ✅ Force logout - clears all data
   Future<void> forceLogout() async {
+    final previousUserId = userId;
     try {
       await SupabaseService().client.auth.signOut();
     } catch (e) {
       debugPrint('Force logout error: $e');
     }
+
+    await _cache.clearUserData(previousUserId);
 
     isLoggedIn = false;
     userName = "Guest";
@@ -142,10 +211,12 @@ class AuthProvider with ChangeNotifier {
     errorMessage = null;
 
     if (_context != null) {
-      final financialProvider = Provider.of<FinancialProvider>(_context!, listen: false);
+      final financialProvider =
+          Provider.of<FinancialProvider>(_context!, listen: false);
       financialProvider.clearAllData();
 
-      final savedProvider = Provider.of<SavedProvider>(_context!, listen: false);
+      final savedProvider =
+          Provider.of<SavedProvider>(_context!, listen: false);
       savedProvider.clear();
     }
 
@@ -184,6 +255,7 @@ class AuthProvider with ChangeNotifier {
         );
 
         await _userService.createUser(user);
+        await _cache.saveUser(user);
 
         isLoggedIn = true;
         userName = name;
@@ -209,7 +281,8 @@ class AuthProvider with ChangeNotifier {
       isLoading = false;
 
       if (e.toString().contains('rate limit')) {
-        errorMessage = "Too many registration attempts. Please wait 5-10 minutes before trying again.";
+        errorMessage =
+            "Too many registration attempts. Please wait 5-10 minutes before trying again.";
       } else if (e.toString().contains('already registered')) {
         errorMessage = "Email already registered. Please login.";
       } else {
@@ -234,11 +307,9 @@ class AuthProvider with ChangeNotifier {
       );
 
       if (response.user != null) {
-        // ✅ Check if user exists in users table
         final user = await _userService.getUserByEmail(email);
 
         if (user == null) {
-          // ✅ User doesn't exist - force logout and return false
           await forceLogout();
           isLoading = false;
           errorMessage = "Account not found. Please register.";
@@ -253,6 +324,7 @@ class AuthProvider with ChangeNotifier {
         phoneNumber = user.phone;
         selectedState = user.state;
         profilePhoto = user.photo ?? '';
+        await _cache.saveUser(user);
 
         if (_context != null) {
           await _loadUserData(user.id);
@@ -276,13 +348,94 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  Future<bool> resetPassword(String email) async {
+  Future<void> updateProfileDetails({
+    required String name,
+    required String phone,
+    required String state,
+  }) async {
+    final id = getCurrentUserId();
+    if (id == null || id.isEmpty) {
+      throw Exception('Not logged in');
+    }
+
+    await _userService.updateProfileDetails(
+      userId: id,
+      name: name,
+      phone: phone,
+      state: state,
+    );
+
+    userName = name;
+    phoneNumber = phone;
+    selectedState = state;
+    notifyListeners();
+  }
+
+  Future<void> updateProfilePhoto(String photoUrl) async {
+    final id = getCurrentUserId();
+    if (id == null || id.isEmpty) {
+      throw Exception('Not logged in');
+    }
+
+    await _userService.updatePhoto(id, photoUrl);
+    profilePhoto = photoUrl;
+    notifyListeners();
+  }
+
+  Future<void> resetPassword(String email) async {
     try {
-      await SupabaseService().client.auth.resetPasswordForEmail(email);
-      return true;
+      await SupabaseService().client.auth.resetPasswordForEmail(email.trim());
+    } on AuthException catch (e) {
+      debugPrint('Reset password error: ${e.message}');
+      throw Exception(_resetPasswordErrorMessage(e.message));
     } catch (e) {
       debugPrint('Reset password error: $e');
-      return false;
+      throw Exception(
+        'Could not reach the server. Check your connection and try again.',
+      );
+    }
+  }
+
+  String _resetPasswordErrorMessage(String message) {
+    final lower = message.toLowerCase();
+    if (lower.contains('rate') || lower.contains('too many')) {
+      return 'Too many attempts. Please try again later.';
+    }
+    if (lower.contains('invalid') && lower.contains('email')) {
+      return 'Invalid email address';
+    }
+    if (lower.contains('network') || lower.contains('timeout')) {
+      return 'Could not reach the server. Check your connection and try again.';
+    }
+    return message.isEmpty
+        ? 'Failed to send reset email. Please try again.'
+        : message;
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final client = SupabaseService().client;
+    final currentEmail = client.auth.currentSession?.user.email ?? email;
+    if (currentEmail.isEmpty) {
+      throw Exception('Not logged in');
+    }
+
+    try {
+      await client.auth.signInWithPassword(
+        email: currentEmail,
+        password: currentPassword,
+      );
+    } on AuthException {
+      throw Exception('Current password is incorrect');
+    }
+
+    final response = await client.auth.updateUser(
+      UserAttributes(password: newPassword),
+    );
+    if (response.user == null) {
+      throw Exception('Password update failed, please try again');
     }
   }
 
@@ -299,17 +452,22 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logoutWithAuth() async {
+    final previousUserId = userId;
     try {
       await SupabaseService().client.auth.signOut();
     } catch (e) {
       debugPrint('Logout error: $e');
     }
 
+    await _cache.clearUserData(previousUserId);
+
     if (_context != null) {
-      final savedProvider = Provider.of<SavedProvider>(_context!, listen: false);
+      final savedProvider =
+          Provider.of<SavedProvider>(_context!, listen: false);
       savedProvider.clear();
 
-      final financialProvider = Provider.of<FinancialProvider>(_context!, listen: false);
+      final financialProvider =
+          Provider.of<FinancialProvider>(_context!, listen: false);
       financialProvider.clearAllData();
     }
 
@@ -340,7 +498,6 @@ class AuthProvider with ChangeNotifier {
     return session?.user.email;
   }
 
-  // ✅ Clear all data (used for logout)
   void clearAllData() {
     isLoggedIn = false;
     userName = "Guest";

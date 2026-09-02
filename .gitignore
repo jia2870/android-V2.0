@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Property pipeline secrets and browser profile leftovers
+scripts/property_pipeline/.env
+scripts/property_pipeline/data/pw_profile/
+scripts/property_pipeline/data/ingest_report.json
+

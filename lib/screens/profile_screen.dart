@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/financial_provider.dart';
 import '../providers/theme_provider.dart';
+import '../utils/money_format.dart';
+import '../widgets/editable_avatar.dart';
+import '../widgets/adaptive_nav_scaffold.dart';
+import 'edit_profile_screen.dart';
 import 'login_screen.dart';
 import 'financial_assessment_screen.dart';
-import 'property_preferences_screen.dart';
-import 'dashboard_screen.dart';
-import 'saved_properties_screen.dart';
-import 'ai_advisor_screen.dart';
+import 'loan_calculator_screen.dart';
 import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,50 +20,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static const int _currentIndex = 3;
-
   void _onTabTapped(int index) {
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } else if (index == 1) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final financial = Provider.of<FinancialProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      if (financial.monthlySalary <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete your financial assessment first')),
-        );
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const AIAdvisorScreen(property: null),
-        ),
-      );
-    } else if (index == 2) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SavedPropertiesScreen()),
-      );
-    } else if (index == 3) {
-      // Profile - already here
-    }
+    if (index == AppNavIndex.profile) return;
+    handleAppNavigation(context, index);
   }
 
   @override
@@ -72,7 +32,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
-    return Scaffold(
+    return AdaptiveNavScaffold(
+      currentIndex: AppNavIndex.profile,
+      onTap: _onTabTapped,
       appBar: AppBar(
         title: const Text("Profile"),
         actions: [
@@ -94,48 +56,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // User Avatar and Info
               Center(
                 child: Column(
                   children: [
-                    Stack(
-                      children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundImage: auth.profilePhoto.isNotEmpty
-                              ? AssetImage(auth.profilePhoto)
-                              : null,
-                          child: auth.profilePhoto.isEmpty
-                              ? const Icon(Icons.person, size: 60)
-                              : null,
-                        ),
-                        if (auth.isLoggedIn)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: IconButton(
-                                icon: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Upload profile photo - Coming soon'),
-                                    ),
-                                  );
-                                },
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 30,
-                                  minHeight: 30,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
+                    EditableAvatar(
+                      photoUrl: auth.profilePhoto,
+                      editable: auth.isLoggedIn,
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -159,6 +85,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         "📍 ${auth.selectedState}",
                         style: TextStyle(color: isDark ? Colors.white70 : Colors.grey[600]),
                       ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const EditProfileScreen(),
+                            ),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.blue,
+                          side: const BorderSide(color: Colors.blue, width: 1.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          minimumSize: const Size(0, 44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.edit_outlined, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Edit Profile',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ] else ...[
                       Text(
                         "Please login to view your profile",
@@ -171,7 +134,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               const SizedBox(height: 30),
 
-              // Financial Summary
               if (auth.isLoggedIn) ...[
                 Card(
                   color: isDark ? const Color(0xFF1E1E2E) : Colors.blue[50],
@@ -180,7 +142,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // ✅ FIX: Financial Summary text - white in dark mode
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -215,27 +176,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildSummaryItem(
-                                  'Income',
-                                  'RM ${financial.totalMonthlyIncome.toStringAsFixed(0)}',
-                                  Colors.green,
-                                  isDark,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  child: _buildSummaryItem(
+                                    'Income',
+                                    'RM ${MoneyFormat.display(financial.totalMonthlyIncome)}',
+                                    Colors.green,
+                                    isDark,
+                                  ),
                                 ),
                               ),
                               Expanded(
-                                child: _buildSummaryItem(
-                                  'Commitments',
-                                  'RM ${financial.commitments.toStringAsFixed(0)}',
-                                  Colors.red,
-                                  isDark,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  child: _buildSummaryItem(
+                                    'Commitments',
+                                    'RM ${MoneyFormat.display(financial.commitments)}',
+                                    Colors.red,
+                                    isDark,
+                                  ),
                                 ),
                               ),
                               Expanded(
-                                child: _buildSummaryItem(
-                                  'Savings',
-                                  'RM ${financial.savings.toStringAsFixed(0)}',
-                                  Colors.blue,
-                                  isDark,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  child: _buildSummaryItem(
+                                    'Savings',
+                                    'RM ${MoneyFormat.display(financial.savings)}',
+                                    Colors.blue,
+                                    isDark,
+                                  ),
                                 ),
                               ),
                             ],
@@ -244,35 +217,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildSummaryItem(
-                                  'Score',
-                                  '${financial.affordabilityScore.toStringAsFixed(0)}%',
-                                  financial.riskLevel == 'Low'
-                                      ? Colors.green
-                                      : financial.riskLevel == 'Medium'
-                                      ? Colors.orange
-                                      : Colors.red,
-                                  isDark,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  child: _buildSummaryItem(
+                                    'Score',
+                                    '${financial.affordabilityScore.toStringAsFixed(0)}%',
+                                    financial.riskLevel == 'Low'
+                                        ? Colors.green
+                                        : financial.riskLevel == 'Medium'
+                                        ? Colors.orange
+                                        : Colors.red,
+                                    isDark,
+                                  ),
                                 ),
                               ),
                               Expanded(
-                                child: _buildSummaryItem(
-                                  'Budget',
-                                  'RM ${financial.recommendedBudget.toStringAsFixed(0)}',
-                                  Colors.purple,
-                                  isDark,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  child: _buildSummaryItem(
+                                    'Budget',
+                                    'RM ${MoneyFormat.display(financial.recommendedBudget)}',
+                                    Colors.purple,
+                                    isDark,
+                                  ),
                                 ),
                               ),
                               Expanded(
-                                child: _buildSummaryItem(
-                                  'Risk',
-                                  financial.riskLevel,
-                                  financial.riskLevel == 'Low'
-                                      ? Colors.green
-                                      : financial.riskLevel == 'Medium'
-                                      ? Colors.orange
-                                      : Colors.red,
-                                  isDark,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6),
+                                  child: _buildSummaryItem(
+                                    'Risk',
+                                    financial.riskLevel,
+                                    financial.riskLevel == 'Low'
+                                        ? Colors.green
+                                        : financial.riskLevel == 'Medium'
+                                        ? Colors.orange
+                                        : Colors.red,
+                                    isDark,
+                                  ),
                                 ),
                               ),
                             ],
@@ -290,10 +275,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                Card(
+                  color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.calculate_outlined,
+                      color: Colors.blue[400],
+                    ),
+                    title: Text(
+                      'Loan Calculator',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Estimate monthly installments',
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.grey[600],
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const LoanCalculatorScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
                 const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      await auth.logoutWithAuth();
+                      if (mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                        );
+                      }
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Logout'),
+                  ),
+                ),
               ],
 
-              // Not logged in
               if (!auth.isLoggedIn) ...[
                 Card(
                   color: isDark ? const Color(0xFF1E1E2E) : Colors.blue[50],
@@ -343,213 +379,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 20),
               ],
-
-              // Property Preferences
-              if (auth.isLoggedIn) ...[
-                const Text(
-                  "Property Preferences",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Icon(
-                                _getPropertyTypeIcon(financial.propertyType),
-                                color: Colors.orange[700],
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _getPropertyTypeDisplay(financial.propertyType),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w500,
-                                      color: isDark ? Colors.white : Colors.black87,
-                                    ),
-                                    softWrap: true,
-                                  ),
-                                  Text(
-                                    '${financial.bedrooms} Bedroom${financial.bedrooms > 1 ? 's' : ''}',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: isDark ? Colors.white70 : Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, size: 20),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const PropertyPreferencesScreen(),
-                                ),
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildInfoRow('Budget', financial.priceRange, isDark),
-                            _buildInfoRow('Purpose', financial.purpose, isDark),
-                            _buildInfoRow('State', financial.preferredState, isDark),
-                            if (financial.importantFactors.isNotEmpty)
-                              _buildInfoRow(
-                                'Top Factors',
-                                financial.importantFactors.join(', '),
-                                isDark,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
-
-                // Logout button
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () async {
-                      await auth.logoutWithAuth();
-                      if (mounted) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        );
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: const Text('Logout'),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Saved"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-        onTap: _onTabTapped,
       ),
     );
   }
 
   Widget _buildSummaryItem(String label, String value, Color color, bool isDark) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          textAlign: TextAlign.center,
         ),
         Text(
           label,
+          textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 11,
             color: isDark ? Colors.white70 : Colors.grey[600],
           ),
         ),
       ],
-    );
-  }
-
-  String _getPropertyTypeDisplay(String propertyType) {
-    if (propertyType.isEmpty) return 'No type selected';
-    if (propertyType.contains(',')) {
-      final types = propertyType.split(',').map((s) => s.trim()).toList();
-      return types.join(' . ');
-    }
-    return propertyType;
-  }
-
-  IconData _getPropertyTypeIcon(String propertyType) {
-    if (propertyType.isEmpty) return Icons.home;
-    String firstType = propertyType;
-    if (propertyType.contains(',')) {
-      firstType = propertyType.split(',').first.trim();
-    }
-    final type = firstType.toLowerCase();
-    if (type.contains('bungalow')) {
-      return Icons.villa;
-    } else if (type.contains('semi') || type.contains('semi-d')) {
-      return Icons.holiday_village;
-    } else if (type.contains('terrace')) {
-      return Icons.house;
-    } else if (type.contains('condo') || type.contains('condominium')) {
-      return Icons.apartment;
-    } else if (type.contains('apartment')) {
-      return Icons.apartment;
-    }
-    return Icons.home;
-  }
-
-  Widget _buildInfoRow(String label, String value, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? Colors.white70 : Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 13,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
