@@ -11,6 +11,7 @@ import '../widgets/adaptive_nav_scaffold.dart';
 import '../widgets/property_filter_dialog.dart';
 import 'property_detail_screen.dart';
 import 'login_screen.dart';
+import 'dashboard_screen.dart';
 
 class SavedPropertiesScreen extends StatefulWidget {
   const SavedPropertiesScreen({super.key});
@@ -459,7 +460,12 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                       if (_errorMessage!.contains('No saved properties'))
                         ElevatedButton(
                           onPressed: () {
-                            Navigator.pop(context);
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const DashboardScreen(),
+                              ),
+                            );
                           },
                           child: const Text('Browse Properties'),
                         ),

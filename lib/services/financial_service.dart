@@ -7,6 +7,7 @@ import 'supabase_service.dart';
 class FinancialService {
   final SupabaseClient _client = SupabaseService().client;
   final LocalCacheService _cache = LocalCacheService.instance;
+  static const Duration _networkTimeout = Duration(seconds: 8);
 
   Future<FinancialProfileModel> createProfile(FinancialProfileModel profile) async {
     try {
@@ -17,7 +18,8 @@ class FinancialService {
           .from(SupabaseService.financialProfilesTable)
           .insert(data)
           .select()
-          .single();
+          .single()
+          .timeout(_networkTimeout);
 
       final created = FinancialProfileModel.fromJson(response);
       await _cache.saveFinancial(created.userId, created);
@@ -66,7 +68,8 @@ class FinancialService {
           .update(profile.toUpdateJson())
           .eq('id', existing.id)
           .select()
-          .single();
+          .single()
+          .timeout(_networkTimeout);
 
       final updated = FinancialProfileModel.fromJson(response);
       await _cache.saveFinancial(updated.userId, updated);
@@ -90,14 +93,24 @@ class FinancialService {
     }
   }
 
-  Future<FinancialProfileModel> saveOrUpdateProfile(FinancialProfileModel profile) async {
+  Future<bool> saveOrUpdateProfile(FinancialProfileModel profile) async {
     await _cache.saveFinancial(profile.userId, profile);
+    return _syncProfileToCloud(profile);
+  }
+
+  Future<bool> _syncProfileToCloud(FinancialProfileModel profile) async {
+    if (!await isDeviceOnline()) {
+      await _cache.markPendingFinancial(profile.userId, true);
+      return false;
+    }
+
     try {
       final existing = await _client
           .from(SupabaseService.financialProfilesTable)
-          .select()
+          .select('id')
           .eq('user_id', profile.userId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(_networkTimeout);
 
       if (existing != null) {
         final response = await _client
@@ -105,18 +118,23 @@ class FinancialService {
             .update(profile.toUpdateJson())
             .eq('id', existing['id'])
             .select()
-            .single();
+            .single()
+            .timeout(_networkTimeout);
         final updated = FinancialProfileModel.fromJson(response);
         await _cache.saveFinancial(updated.userId, updated);
         await _cache.markPendingFinancial(updated.userId, false);
-        return updated;
+        return true;
       }
 
-      return await createProfile(profile);
-    } catch (e) {
+      await createProfile(profile);
+      return true;
+    } catch (e, stack) {
       await _cache.markPendingFinancial(profile.userId, true);
-      debugPrint('saveOrUpdateProfile offline/queued: $e');
-      return profile;
+      debugPrint(
+        'saveOrUpdateProfile failed: $e | '
+        'salary=${profile.monthlySalary} budget=${profile.recommendedBudget}\n$stack',
+      );
+      return false;
     }
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -5,6 +7,7 @@ import '../../providers/financial_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/debt_service.dart';
 import '../../services/financial_service.dart';
+import '../../services/local_cache_service.dart';
 import '../../services/supabase_service.dart';
 import '../../utils/ai_access_prompt.dart';
 import '../../utils/money_format.dart';
@@ -157,24 +160,6 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
     final savings = MoneyFormat.parseOrZero(_savingsController.text);
     final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
 
-    final totalIncome = salary + otherIncome;
-    double score = 0;
-    double budget = 0;
-    String riskLevel = "Low";
-
-    if (totalIncome > 0) {
-      final debtRatio = commitments / totalIncome;
-      score = (100 - (debtRatio * 100)).clamp(30.0, 95.0);
-      budget = totalIncome * 55 + savings * 0.6;
-      if (debtRatio < 0.3) {
-        riskLevel = "Low";
-      } else if (debtRatio < 0.5) {
-        riskLevel = "Medium";
-      } else {
-        riskLevel = "High";
-      }
-    }
-
     final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
     financialProvider.updateFinancialData(
       salary: salary,
@@ -192,30 +177,60 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
       commitments: commitments,
       savings: savings,
       downPayment: downPayment,
-      affordabilityScore: score,
-      recommendedBudget: budget,
-      riskLevel: riskLevel,
+      affordabilityScore: financialProvider.affordabilityScore,
+      recommendedBudget: financialProvider.recommendedBudget,
+      riskLevel: financialProvider.riskLevel,
     );
 
-    try {
-      await _financialService.saveOrUpdateProfile(profile);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Financial data saved to cloud!")),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving: ${e.toString()}")),
-        );
-      }
-      debugPrint('Save error: $e');
-    }
+    debugPrint(
+      'SAVE: salary=$salary budget=${profile.recommendedBudget} '
+      'score=${profile.affordabilityScore}',
+    );
 
     if (mounted) {
       setState(() => _isSaving = false);
+    }
+
+    unawaited(_persistFinancialProfile(profile));
+  }
+
+  Future<void> _persistFinancialProfile(FinancialProfileModel profile) async {
+    try {
+      await LocalCacheService.instance
+          .saveFinancial(profile.userId, profile)
+          .timeout(const Duration(seconds: 5));
+
+      final synced = await _financialService
+          .saveOrUpdateProfile(profile)
+          .timeout(
+            const Duration(seconds: 12),
+            onTimeout: () {
+              debugPrint('SAVE: cloud sync timed out after 12s');
+              return false;
+            },
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            synced
+                ? 'Financial data saved!'
+                : 'Saved on this device. Cloud sync failed — '
+                    'try widening Supabase numeric columns or check network.',
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      if (synced && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+    } catch (e, stack) {
+      debugPrint('Persist error: $e\n$stack');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved locally. Cloud error: $e')),
+      );
     }
   }
 
