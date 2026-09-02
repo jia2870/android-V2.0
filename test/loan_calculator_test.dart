@@ -4,7 +4,6 @@ import 'package:mobile_asg/utils/loan_calculator.dart';
 void main() {
   group('LoanCalculator', () {
     test('monthly installment matches amortization for known inputs', () {
-      // 693000 @ 3.8% for 30 years ≈ RM 3,231.xx / month
       final monthly = LoanCalculator.monthlyInstallment(
         principal: 693000,
         annualRatePercent: 3.8,
