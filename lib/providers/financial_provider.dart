@@ -187,14 +187,21 @@ class FinancialProvider extends ChangeNotifier {
   double _getPriceRangeScore() {
     if (priceRange.isEmpty) return 0.5;
 
-    final numbers = priceRange
+    final cleaned = priceRange
         .replaceAll('RM', '')
-        .replaceAll('k', '000')
-        .replaceAll('K', '000')
-        .replaceAll('+', '');
-    final parts = numbers.split('–');
+        .replaceAll('rm', '')
+        .replaceAll(',', '')
+        .trim();
+    final hasPlus = cleaned.contains('+');
+    final withoutPlus = cleaned.replaceAll('+', '');
 
-    if (parts.length == 2) {
+    final parts = withoutPlus
+        .split(RegExp(r'[–—-]'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (parts.length >= 2) {
       final minPrice = _parsePriceString(parts[0]);
       final maxPrice = _parsePriceString(parts[1]);
 
@@ -205,24 +212,37 @@ class FinancialProvider extends ChangeNotifier {
       } else {
         return 0.7;
       }
-    } else if (priceRange.contains('+')) {
-      final minPrice = _parsePriceString(priceRange.replaceAll('+', ''));
+    }
+
+    if (hasPlus || parts.length == 1) {
+      final minPrice = _parsePriceString(parts.isNotEmpty ? parts.first : withoutPlus);
       if (recommendedBudget >= minPrice) {
         return 1.0;
-      } else {
-        return 0.4;
       }
+      return 0.4;
     }
 
     return 0.5;
   }
 
   double _parsePriceString(String value) {
-    value = value.trim().replaceAll(',', '');
-    if (value.contains('M')) {
-      return double.parse(value.replaceAll('M', '')) * 1000000;
+    var text = value.trim().replaceAll(',', '').replaceAll('RM', '').replaceAll('rm', '');
+    if (text.isEmpty) return 0;
+
+    var multiplier = 1.0;
+    if (text.endsWith('M') || text.endsWith('m')) {
+      multiplier = 1000000;
+      text = text.substring(0, text.length - 1).trim();
+    } else if (text.endsWith('K') || text.endsWith('k')) {
+      multiplier = 1000;
+      text = text.substring(0, text.length - 1).trim();
+    } else if (text.contains('k') || text.contains('K')) {
+      text = text.replaceAll('k', '000').replaceAll('K', '000');
     }
-    return double.tryParse(value) ?? 0;
+
+    final parsed = double.tryParse(text);
+    if (parsed == null) return 0;
+    return parsed * multiplier;
   }
 
   double _getBedroomScore() {

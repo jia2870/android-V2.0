@@ -130,9 +130,8 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
   }
 
   Future<void> _saveFinancialData() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     String? userId = auth.getCurrentUserId();
@@ -147,51 +146,73 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
     if (userId == null || userId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please login first")),
+          const SnackBar(content: Text('Please login first')),
         );
       }
-      setState(() => _isSaving = false);
       return;
     }
 
-    final salary = MoneyFormat.parseOrZero(_monthlySalaryController.text);
-    final otherIncome = MoneyFormat.parseOrZero(_otherIncomeController.text);
-    final commitments = MoneyFormat.parseOrZero(_commitmentsController.text);
-    final savings = MoneyFormat.parseOrZero(_savingsController.text);
-    final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
+    setState(() => _isSaving = true);
 
-    final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
-    financialProvider.updateFinancialData(
-      salary: salary,
-      otherIncome: otherIncome,
-      commitments: commitments,
-      savings: savings,
-      downPayment: downPayment,
-    );
+    FinancialProfileModel? profile;
+    try {
+      final salary = MoneyFormat.parseOrZero(_monthlySalaryController.text);
+      final otherIncome = MoneyFormat.parseOrZero(_otherIncomeController.text);
+      final commitments = MoneyFormat.parseOrZero(_commitmentsController.text);
+      final savings = MoneyFormat.parseOrZero(_savingsController.text);
+      final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
 
-    final profile = FinancialProfileModel(
-      id: '',
-      userId: userId,
-      monthlySalary: salary,
-      otherIncome: otherIncome,
-      commitments: commitments,
-      savings: savings,
-      downPayment: downPayment,
-      affordabilityScore: financialProvider.affordabilityScore,
-      recommendedBudget: financialProvider.recommendedBudget,
-      riskLevel: financialProvider.riskLevel,
-    );
+      final financialProvider =
+          Provider.of<FinancialProvider>(context, listen: false);
+      financialProvider.updateFinancialData(
+        salary: salary,
+        otherIncome: otherIncome,
+        commitments: commitments,
+        savings: savings,
+        downPayment: downPayment,
+      );
 
-    debugPrint(
-      'SAVE: salary=$salary budget=${profile.recommendedBudget} '
-      'score=${profile.affordabilityScore}',
-    );
+      profile = FinancialProfileModel(
+        id: '',
+        userId: userId,
+        monthlySalary: salary,
+        otherIncome: otherIncome,
+        commitments: commitments,
+        savings: savings,
+        downPayment: downPayment,
+        affordabilityScore: financialProvider.affordabilityScore,
+        recommendedBudget: financialProvider.recommendedBudget,
+        riskLevel: financialProvider.riskLevel,
+      );
 
-    if (mounted) {
-      setState(() => _isSaving = false);
+      debugPrint(
+        'SAVE: salary=$salary budget=${profile.recommendedBudget} '
+        'score=${profile.affordabilityScore}',
+      );
+    } catch (e, stack) {
+      debugPrint('SAVE prepare error: $e\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not prepare save: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
 
-    unawaited(_persistFinancialProfile(profile));
+    if (profile != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Saving...'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+      unawaited(_persistFinancialProfile(profile));
+    }
   }
 
   Future<void> _persistFinancialProfile(FinancialProfileModel profile) async {
@@ -490,16 +511,20 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
 
                 SizedBox(
                   width: double.infinity,
-                  child: _isSaving
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _saveFinancialData,
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _saveFinancialData,
                     style: ElevatedButton.styleFrom(
                       side: BorderSide(
                         color: isDark ? Colors.white : Colors.transparent,
                       ),
                     ),
-                    child: const Text("Save & Calculate Affordability"),
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save & Calculate Affordability'),
                   ),
                 ),
 

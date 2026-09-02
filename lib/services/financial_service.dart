@@ -94,14 +94,25 @@ class FinancialService {
   }
 
   Future<bool> saveOrUpdateProfile(FinancialProfileModel profile) async {
-    await _cache.saveFinancial(profile.userId, profile);
+    try {
+      await _cache
+          .saveFinancial(profile.userId, profile)
+          .timeout(_networkTimeout);
+    } catch (e) {
+      debugPrint('saveOrUpdateProfile cache error: $e');
+    }
     return _syncProfileToCloud(profile);
   }
 
   Future<bool> _syncProfileToCloud(FinancialProfileModel profile) async {
-    if (!await isDeviceOnline()) {
-      await _cache.markPendingFinancial(profile.userId, true);
-      return false;
+    try {
+      final online = await isDeviceOnline().timeout(const Duration(seconds: 3));
+      if (!online) {
+        await _cache.markPendingFinancial(profile.userId, true);
+        return false;
+      }
+    } catch (_) {
+      // Treat connectivity check failures as online and try Supabase.
     }
 
     try {
