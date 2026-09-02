@@ -30,9 +30,9 @@ Future<void> handleAppNavigation(BuildContext context, int index) async {
     case AppNavIndex.ai:
       final auth = Provider.of<AuthProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Please login first')));
         return;
       }
       final financial = Provider.of<FinancialProvider>(context, listen: false);
@@ -50,9 +50,9 @@ Future<void> handleAppNavigation(BuildContext context, int index) async {
     case AppNavIndex.saved:
       final auth = Provider.of<AuthProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Please login first')));
         return;
       }
       Navigator.pushReplacement(
@@ -63,9 +63,9 @@ Future<void> handleAppNavigation(BuildContext context, int index) async {
     case AppNavIndex.profile:
       final auth = Provider.of<AuthProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Please login first')));
         return;
       }
       Navigator.pushReplacement(
@@ -180,10 +180,7 @@ class AdaptiveNavScaffold extends StatelessWidget {
 }
 
 class _TabletSideNav extends StatelessWidget {
-  const _TabletSideNav({
-    required this.currentIndex,
-    required this.onSelect,
-  });
+  const _TabletSideNav({required this.currentIndex, required this.onSelect});
 
   final int currentIndex;
   final ValueChanged<int> onSelect;
@@ -193,7 +190,11 @@ class _TabletSideNav extends StatelessWidget {
     (index: AppNavIndex.ai, icon: Icons.smart_toy, label: 'AI'),
     (index: AppNavIndex.saved, icon: Icons.favorite_outline, label: 'Saved'),
     (index: AppNavIndex.profile, icon: Icons.person_outline, label: 'Profile'),
-    (index: AppNavIndex.settings, icon: Icons.settings_outlined, label: 'Settings'),
+    (
+    index: AppNavIndex.settings,
+    icon: Icons.settings_outlined,
+    label: 'Settings',
+    ),
   ];
 
   @override
@@ -216,14 +217,23 @@ class _TabletSideNav extends StatelessWidget {
                     : const EdgeInsets.fromLTRB(16, 20, 16, 24),
                 child: Row(
                   children: [
-                    Image.asset(
-                      'assets/images/app_logo.jpeg',
-                      width: compact ? 24 : 32,
-                      height: compact ? 24 : 32,
-                      errorBuilder: (_, __, ___) => Icon(
-                        Icons.home_work_rounded,
-                        color: Colors.blue,
-                        size: compact ? 24 : 32,
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.blue.withValues(alpha: 0.15)
+                            : const Color(0xFFE8F2FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Image.asset(
+                        'assets/images/app_logo.jpeg',
+                        width: compact ? 22 : 28,
+                        height: compact ? 22 : 28,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.home_work_rounded,
+                          color: Colors.blue,
+                          size: compact ? 22 : 28,
+                        ),
                       ),
                     ),
                     SizedBox(width: compact ? 8 : 10),
@@ -242,6 +252,11 @@ class _TabletSideNav extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: isDark ? Colors.white12 : Colors.grey.shade200,
               ),
               Expanded(
                 child: ListView(
@@ -286,37 +301,47 @@ class _SideNavTile extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final selectedBg = isDark
         ? Colors.blue.withValues(alpha: 0.22)
-        : const Color(0xFFE3F0FF);
+        : const Color(0xFFE8F2FF);
     final color = selected
         ? Colors.blue
         : (isDark ? Colors.white70 : Colors.grey.shade700);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Material(
         color: selected ? selectedBg : Colors.transparent,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
+          child: Container(
+            decoration: selected
+                ? BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.blue.withValues(alpha: 0.25),
+              ),
+            )
+                : null,
+            child: Padding(
               padding: EdgeInsets.symmetric(
                 horizontal: compact ? 9 : 12,
-                vertical: compact ? 7 : 12,
+                vertical: compact ? 7 : 11,
               ),
-            child: Row(
-              children: [
+              child: Row(
+                children: [
                   Icon(icon, size: compact ? 18 : 22, color: color),
                   SizedBox(width: compact ? 8 : 12),
-                Text(
-                  label,
-                  style: TextStyle(
+                  Text(
+                    label,
+                    style: TextStyle(
                       fontSize: compact ? 11 : 14,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: color,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                      color: color,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
