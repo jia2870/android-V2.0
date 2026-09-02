@@ -55,14 +55,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   bool get _hasActiveFilters =>
       _selectedState != null ||
-      _selectedDistrict != null ||
-      _selectedPropertyType != null ||
-      _selectedTenure != null ||
-      _selectedBedrooms != null ||
-      _minPrice != null ||
-      _maxPrice != null ||
-      _searchController.text.trim().isNotEmpty;
-
+          _selectedDistrict != null ||
+          _selectedPropertyType != null ||
+          _selectedTenure != null ||
+          _selectedBedrooms != null ||
+          _minPrice != null ||
+          _maxPrice != null ||
+          _searchController.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -134,37 +133,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     _propertyService
         .searchProperties(
-          query: query.isNotEmpty ? query : null,
-          state: _selectedState,
-          district: _selectedDistrict,
-          minPrice: _minPrice,
-          maxPrice: _maxPrice,
-          bedrooms: _selectedBedrooms,
-          propertyType: _selectedPropertyType,
-          tenure: _selectedTenure,
-        )
+      query: query.isNotEmpty ? query : null,
+      state: _selectedState,
+      district: _selectedDistrict,
+      minPrice: _minPrice,
+      maxPrice: _maxPrice,
+      bedrooms: _selectedBedrooms,
+      propertyType: _selectedPropertyType,
+      tenure: _selectedTenure,
+    )
         .then((results) {
-          if (mounted) {
-            setState(() {
-              _filteredProperties = results;
-              _isLoading = false;
-              if (results.isEmpty) {
-                _errorMessage = 'No properties found matching your criteria';
-              }
-            });
-          }
-        })
-        .catchError((e) {
-          if (mounted) {
-            setState(() {
-              _isLoading = false;
-              _errorMessage = 'Search error: $e';
-            });
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text('Search error: $e')));
+      if (mounted) {
+        setState(() {
+          _filteredProperties = results;
+          _isLoading = false;
+          if (results.isEmpty) {
+            _errorMessage = 'No properties found matching your criteria';
           }
         });
+      }
+    })
+        .catchError((e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Search error: $e';
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Search error: $e')));
+      }
+    });
   }
 
   void _clearFilters() {
@@ -279,11 +278,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final saved = Provider.of<SavedProvider>(context);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final compactHeight = MediaQuery.sizeOf(context).height < 500;
     final tabletMode = isTabletUiActive(context);
     final wideLandscape =
         tabletMode &&
-        MediaQuery.orientationOf(context) == Orientation.landscape;
+            MediaQuery.orientationOf(context) == Orientation.landscape;
 
     return AdaptiveNavScaffold(
       currentIndex: AppNavIndex.home,
@@ -291,11 +292,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('Search Properties'),
         actions: [
+          if (_hasActiveFilters)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text(
+                    'Filtered',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             icon: Icon(
               wideLandscape
-                  ? Icons.filter_list
-                  : (_showFilters ? Icons.filter_list : Icons.filter_list_off),
+                  ? Icons.tune_rounded
+                  : (_showFilters ? Icons.tune_rounded : Icons.tune_outlined),
             ),
             onPressed: () {
               if (wideLandscape) {
@@ -313,17 +334,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const OfflineBanner(),
           Padding(
             padding: EdgeInsets.fromLTRB(
-              16,
-              compactHeight ? 8 : 16,
-              16,
+              tabletMode ? 20 : 16,
+              compactHeight ? 8 : 14,
+              tabletMode ? 20 : 16,
               compactHeight ? 4 : 8,
             ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: tabletMode ? 640 : double.infinity,
+            child: Material(
+              elevation: isDark ? 0 : 1,
+              shadowColor: Colors.black26,
+              color: isDark ? theme.cardColor : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isDark ? theme.dividerColor : Colors.grey.shade200,
                 ),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(compactHeight ? 10 : 14),
                 child: Row(
                   children: [
                     Expanded(
@@ -331,27 +358,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         controller: _searchController,
                         decoration: InputDecoration(
                           hintText: 'Search by title, address...',
-                          prefixIcon: const Icon(Icons.search),
+                          prefixIcon: Icon(
+                            Icons.search_rounded,
+                            color: theme.colorScheme.primary,
+                          ),
+                          filled: true,
+                          fillColor: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0xFFF4F7FB),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
                           ),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _searchProperties();
-                                  },
-                                )
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: () {
+                              _searchController.clear();
+                              _searchProperties();
+                            },
+                          )
                               : null,
                         ),
                         onSubmitted: (_) => _searchProperties(),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
+                    const SizedBox(width: 10),
+                    FilledButton.icon(
                       onPressed: _searchProperties,
-                      child: const Text('Search'),
+                      icon: const Icon(Icons.search_rounded, size: 18),
+                      label: const Text('Search'),
+                      style: FilledButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: compactHeight ? 12 : 18,
+                          vertical: compactHeight ? 12 : 14,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -360,18 +421,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           if (_showFilters && !wideLandscape) _buildFilters(),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            padding: EdgeInsets.fromLTRB(
+              tabletMode ? 20 : 16,
+              4,
+              tabletMode ? 20 : 16,
+              8,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '${_filteredProperties.length} properties found',
-                  style: TextStyle(color: Colors.grey[600]),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.home_work_outlined,
+                      size: 18,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_filteredProperties.length} properties found',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
                 ),
                 if (_showFilters || _hasActiveFilters)
-                  TextButton(
+                  TextButton.icon(
                     onPressed: _clearFilters,
-                    child: const Text('Clear All'),
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
+                    label: const Text('Clear All'),
                   ),
               ],
             ),
@@ -405,34 +485,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredProperties.isEmpty
                 ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No properties found',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Try adjusting your filters',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  )
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.search_off, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text(
+                    'No properties found',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Try adjusting your filters',
+                    style: TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+            )
                 : tabletMode
                 ? _buildTabletPropertyGrid(saved)
                 : ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _filteredProperties.length,
-                    itemBuilder: (context, index) {
-                      final property = _filteredProperties[index];
-                      final isSaved = saved.isSaved(property.listingId);
-                      return _buildPropertyCard(property, isSaved);
-                    },
-                  ),
+              padding: const EdgeInsets.all(16),
+              itemCount: _filteredProperties.length,
+              itemBuilder: (context, index) {
+                final property = _filteredProperties[index];
+                final isSaved = saved.isSaved(property.listingId);
+                return _buildPropertyCard(property, isSaved);
+              },
+            ),
           ),
         ],
       ),
@@ -443,17 +523,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         const gap = 16.0;
-        const horizontalPadding = 32.0;
-        final usableWidth = (constraints.maxWidth - horizontalPadding).clamp(
-          0.0,
-          double.infinity,
-        );
-        final crossAxisCount = usableWidth >= 900 ? 3 : 2;
+        const horizontalPadding = 20.0;
+        final usableWidth = (constraints.maxWidth - horizontalPadding * 2)
+            .clamp(0.0, double.infinity);
+        final crossAxisCount = usableWidth >= 1100
+            ? 3
+            : usableWidth >= 680
+            ? 2
+            : 1;
         final itemWidth =
             (usableWidth - gap * (crossAxisCount - 1)) / crossAxisCount;
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Wrap(
             spacing: gap,
             runSpacing: gap,
@@ -521,7 +603,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             items: [
               const DropdownMenuItem(value: null, child: Text('All Districts')),
               ..._districts.map(
-                (d) => DropdownMenuItem(value: d, child: Text(d)),
+                    (d) => DropdownMenuItem(value: d, child: Text(d)),
               ),
             ],
             onChanged: (value) => setState(() => _selectedDistrict = value),
@@ -537,7 +619,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             items: [
               const DropdownMenuItem(value: null, child: Text('All Types')),
               ..._propertyTypes.map(
-                (t) => DropdownMenuItem(value: t, child: Text(t)),
+                    (t) => DropdownMenuItem(value: t, child: Text(t)),
               ),
             ],
             onChanged: (value) => setState(() => _selectedPropertyType = value),
@@ -553,7 +635,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             items: [
               const DropdownMenuItem(value: null, child: Text('All Tenure')),
               ..._tenureTypes.map(
-                (t) => DropdownMenuItem(value: t, child: Text(t)),
+                    (t) => DropdownMenuItem(value: t, child: Text(t)),
               ),
             ],
             onChanged: (value) => setState(() => _selectedTenure = value),
@@ -569,7 +651,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             items: [
               const DropdownMenuItem(value: null, child: Text('Any')),
               ..._bedroomOptions.map(
-                (b) => DropdownMenuItem(value: b, child: Text('$b+')),
+                    (b) => DropdownMenuItem(value: b, child: Text('$b+')),
               ),
             ],
             onChanged: (value) => setState(() => _selectedBedrooms = value),
@@ -645,17 +727,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildPropertyCard(
-    PropertyModel property,
-    bool isSaved, {
-    bool compact = false,
-  }) {
+      PropertyModel property,
+      bool isSaved, {
+        bool compact = false,
+      }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final photoList = property.photoUrlList;
     final displayPrice = property.price != null
         ? property.formattedPrice
         : 'Price on Request';
+    final location = property.fullAddress != null
+        ? property.fullAddress!.split(',').first
+        : property.state ?? 'Property for Sale';
 
     return Card(
-      margin: EdgeInsets.only(bottom: compact ? 0 : 16),
+      margin: EdgeInsets.only(bottom: compact ? 0 : 14),
+      elevation: isDark ? 0 : 2,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isDark ? theme.dividerColor : Colors.grey.shade100,
+        ),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
@@ -670,123 +765,181 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: compact ? 140 : 180,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(8),
-                ),
-                image: photoList.isNotEmpty
-                    ? DecorationImage(
-                        image: NetworkImage(photoList.first),
-                        fit: BoxFit.cover,
-                      )
-                    : null,
-                color: Colors.grey[200],
-              ),
-              child: photoList.isEmpty
-                  ? Icon(
-                      Icons.home,
-                      size: compact ? 48 : 60,
-                      color: Colors.grey,
+            Stack(
+              children: [
+                Container(
+                  height: compact ? 150 : 190,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.grey.shade200,
+                    image: photoList.isNotEmpty
+                        ? DecorationImage(
+                      image: NetworkImage(photoList.first),
+                      fit: BoxFit.cover,
                     )
-                  : null,
+                        : null,
+                  ),
+                  child: photoList.isEmpty
+                      ? Center(
+                    child: Icon(
+                      Icons.home_rounded,
+                      size: compact ? 48 : 60,
+                      color: Colors.grey.shade400,
+                    ),
+                  )
+                      : null,
+                ),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 6,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      displayPrice,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Material(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _toggleSave(property.listingId),
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Icon(
+                          isSaved
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          size: 20,
+                          color: isSaved ? Colors.red : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-
             Padding(
-              padding: EdgeInsets.all(compact ? 10 : 12),
+              padding: EdgeInsets.all(compact ? 12 : 14),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    displayPrice,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-
-                  Text(
-                    property.fullAddress != null
-                        ? property.fullAddress!.split(',').first
-                        : property.state ?? 'Property for Sale',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                    location,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      height: 1.2,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
-
-                  Row(
-                    children: [
-                      if (property.bedrooms != null) ...[
-                        const Icon(Icons.bed, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text('${property.bedrooms}'),
-                        const SizedBox(width: 12),
-                      ],
-                      if (property.bathrooms != null) ...[
-                        const Icon(Icons.bathtub, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text('${property.bathrooms}'),
-                        const SizedBox(width: 12),
-                      ],
-                      if (property.builtUp != null &&
-                          property.builtUp!.isNotEmpty) ...[
-                        const Icon(
-                          Icons.photo_size_select_actual,
-                          size: 16,
-                          color: Colors.grey,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(property.builtUp!),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-
                   Text(
                     property.shortAddress,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: isDark ? Colors.white60 : Colors.grey.shade600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue[50],
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          property.propertyType ?? 'Unknown',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.blue[700],
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFF4F7FB),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        if (property.bedrooms != null) ...[
+                          Icon(
+                            Icons.bed_outlined,
+                            size: 16,
+                            color: theme.colorScheme.primary,
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          Text('${property.bedrooms}'),
+                          const SizedBox(width: 12),
+                        ],
+                        if (property.bathrooms != null) ...[
+                          Icon(
+                            Icons.bathtub_outlined,
+                            size: 16,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text('${property.bathrooms}'),
+                          const SizedBox(width: 12),
+                        ],
+                        if (property.builtUp != null &&
+                            property.builtUp!.isNotEmpty) ...[
+                          Icon(
+                            Icons.square_foot_outlined,
+                            size: 16,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              property.builtUp!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      property.propertyType ?? 'Unknown',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
                       ),
-                      IconButton(
-                        icon: Icon(
-                          isSaved ? Icons.favorite : Icons.favorite_border,
-                          color: isSaved ? Colors.red : null,
-                        ),
-                        onPressed: () => _toggleSave(property.listingId),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
