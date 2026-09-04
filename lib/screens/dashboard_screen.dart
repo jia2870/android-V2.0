@@ -526,9 +526,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const horizontalPadding = 20.0;
         final usableWidth = (constraints.maxWidth - horizontalPadding * 2)
             .clamp(0.0, double.infinity);
-        final crossAxisCount = usableWidth >= 1100
+        final crossAxisCount = usableWidth >= 900
             ? 3
-            : usableWidth >= 680
+            : usableWidth >= 500
             ? 2
             : 1;
         final itemWidth =

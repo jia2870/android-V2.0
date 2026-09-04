@@ -506,7 +506,11 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
           0.0,
           double.infinity,
         );
-        final crossAxisCount = usableWidth >= 900 ? 3 : 2;
+        final crossAxisCount = usableWidth >= 900
+            ? 3
+            : usableWidth >= 500
+            ? 2
+            : 1;
         final itemWidth =
             (usableWidth - gap * (crossAxisCount - 1)) / crossAxisCount;
 
