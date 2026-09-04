@@ -182,7 +182,7 @@ class _AIAdvisorChatScreenState extends State<AIAdvisorChatScreen> {
             Text(
               'Income ${MoneyFormat.display(snap.monthlyIncome)} · '
               'DSR ${snap.currentDsrPercent.toStringAsFixed(1)}% · '
-              'Budget ${MoneyFormat.display(snap.recommendedBudget)}',
+              'Budget ${MoneyFormat.displayCalculated(snap.recommendedBudget)}',
               style: TextStyle(
                 fontSize: 12,
                 color: isDark ? Colors.white70 : Colors.black87,

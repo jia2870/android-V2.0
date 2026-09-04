@@ -7,7 +7,6 @@ import '../../providers/financial_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/debt_service.dart';
 import '../../services/financial_service.dart';
-import '../../services/local_cache_service.dart';
 import '../../services/supabase_service.dart';
 import '../../utils/ai_access_prompt.dart';
 import '../../utils/money_format.dart';
@@ -217,16 +216,12 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
 
   Future<void> _persistFinancialProfile(FinancialProfileModel profile) async {
     try {
-      await LocalCacheService.instance
-          .saveFinancial(profile.userId, profile)
-          .timeout(const Duration(seconds: 5));
-
       final synced = await _financialService
           .saveOrUpdateProfile(profile)
           .timeout(
-            const Duration(seconds: 12),
+            const Duration(seconds: 8),
             onTimeout: () {
-              debugPrint('SAVE: cloud sync timed out after 12s');
+              debugPrint('SAVE: cloud sync timed out after 8s');
               return false;
             },
           );
@@ -236,9 +231,8 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
         SnackBar(
           content: Text(
             synced
-                ? 'Financial data saved!'
-                : 'Saved on this device. Cloud sync failed — '
-                    'try widening Supabase numeric columns or check network.',
+                ? 'Financial data saved to cloud!'
+                : 'Saved on this device only. Cloud sync failed or timed out.',
           ),
           duration: const Duration(seconds: 4),
         ),
@@ -591,7 +585,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     FittedBox(
                                       fit: BoxFit.scaleDown,
                                       child: Text(
-                                        "RM ${MoneyFormat.display(financialProvider.recommendedBudget)}",
+                                        "RM ${MoneyFormat.displayCalculated(financialProvider.recommendedBudget)}",
                                         maxLines: 1,
                                         style: TextStyle(
                                           fontSize: 28,

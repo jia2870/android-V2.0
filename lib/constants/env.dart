@@ -10,9 +10,10 @@ class Env {
   // ============================================================
   // OpenAI Configuration
   // 从 OpenAI Platform → API Keys 获取
+  // Put your real key here locally — never commit it to GitHub.
   // ============================================================
-  static const String openAiApiKey = 'Api key';
-  static const String openAiBaseUrl = 'website';
+  static const String openAiApiKey = 'YOUR_OPENAI_API_KEY_HERE';
+  static const String openAiBaseUrl = 'https://api.openai.com/v1';
   static const String gptModel = 'gpt-4o-mini';
 
 // ============================================================

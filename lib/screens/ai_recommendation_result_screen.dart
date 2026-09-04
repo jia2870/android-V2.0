@@ -196,7 +196,7 @@ class AIRecommendationResultScreen extends StatelessWidget {
           ),
           _snapshotRow(
             'Recommended budget',
-            MoneyFormat.display(snap.recommendedBudget),
+            MoneyFormat.displayCalculated(snap.recommendedBudget),
             isDark,
           ),
         ],

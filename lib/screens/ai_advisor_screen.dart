@@ -135,7 +135,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
     if (financial.recommendedBudget > 0) {
       buffer.write(
         '\n\nYour recommended budget is about '
-        '${MoneyFormat.display(financial.recommendedBudget)}.',
+        '${MoneyFormat.displayCalculated(financial.recommendedBudget)}.',
       );
     }
 
@@ -595,7 +595,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
             color: isDark ? const Color(0xFF1E1E2E) : Colors.blue[50],
             child: Text(
               'Income ${MoneyFormat.display(financial.totalMonthlyIncome)} · '
-              'Budget ${MoneyFormat.display(financial.recommendedBudget)}',
+              'Budget ${MoneyFormat.displayCalculated(financial.recommendedBudget)}',
               style: TextStyle(
                 fontSize: 12,
                 color: isDark ? Colors.white70 : Colors.blue[900],

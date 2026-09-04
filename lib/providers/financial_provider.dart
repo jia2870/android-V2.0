@@ -35,11 +35,11 @@ class FinancialProvider extends ChangeNotifier {
     required double savings,
     required double downPayment,
   }) {
-    this.monthlySalary = salary;
-    this.otherIncome = otherIncome;
-    this.commitments = commitments;
-    this.savings = savings;
-    this.downPayment = downPayment;
+    this.monthlySalary = MoneyFormat.clamp(salary);
+    this.otherIncome = MoneyFormat.clamp(otherIncome);
+    this.commitments = MoneyFormat.clamp(commitments);
+    this.savings = MoneyFormat.clamp(savings);
+    this.downPayment = MoneyFormat.clamp(downPayment);
     _calculateAffordability();
     _calculatePreferenceMatch();
     notifyListeners();
@@ -138,7 +138,7 @@ class FinancialProvider extends ChangeNotifier {
     affordabilityScore = score;
 
     double maxMonthlyPayment = (totalIncome * 0.55) - commitments;
-    recommendedBudget = MoneyFormat.clamp(
+    recommendedBudget = MoneyFormat.clampCalculated(
       maxMonthlyPayment * 12 * 30 * 0.75 + savings * 0.6,
     );
 
