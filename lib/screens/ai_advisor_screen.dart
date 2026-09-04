@@ -594,7 +594,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
             ),
             color: isDark ? const Color(0xFF1E1E2E) : Colors.blue[50],
             child: Text(
-              'Income ${MoneyFormat.display(financial.totalMonthlyIncome)} · '
+              'Income ${MoneyFormat.displayCalculated(financial.totalMonthlyIncome)} · '
               'Budget ${MoneyFormat.displayCalculated(financial.recommendedBudget)}',
               style: TextStyle(
                 fontSize: 12,

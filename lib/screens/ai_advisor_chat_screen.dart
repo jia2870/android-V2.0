@@ -180,7 +180,7 @@ class _AIAdvisorChatScreenState extends State<AIAdvisorChatScreen> {
           if (snap != null && snap.monthlyIncome > 0) ...[
             const SizedBox(height: 6),
             Text(
-              'Income ${MoneyFormat.display(snap.monthlyIncome)} · '
+              'Income ${MoneyFormat.displayCalculated(snap.monthlyIncome)} · '
               'DSR ${snap.currentDsrPercent.toStringAsFixed(1)}% · '
               'Budget ${MoneyFormat.displayCalculated(snap.recommendedBudget)}',
               style: TextStyle(

@@ -181,7 +181,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       horizontal: 6),
                                   child: _buildSummaryItem(
                                     'Income',
-                                    'RM ${MoneyFormat.display(financial.totalMonthlyIncome)}',
+                                    'RM ${MoneyFormat.displayCalculated(financial.totalMonthlyIncome)}',
                                     Colors.green,
                                     isDark,
                                   ),

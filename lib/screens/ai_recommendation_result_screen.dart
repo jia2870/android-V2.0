@@ -186,7 +186,7 @@ class AIRecommendationResultScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _snapshotRow('Monthly income', MoneyFormat.display(snap.monthlyIncome), isDark),
+          _snapshotRow('Monthly income', MoneyFormat.displayCalculated(snap.monthlyIncome), isDark),
           _snapshotRow('Commitments', MoneyFormat.display(snap.commitments), isDark),
           _snapshotRow('Disposable', MoneyFormat.display(snap.disposableIncome), isDark),
           _snapshotRow(

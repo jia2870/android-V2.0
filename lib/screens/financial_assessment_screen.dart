@@ -334,7 +334,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     const EdgeInsets.symmetric(horizontal: 6),
                                 child: _buildSummaryItem(
                                   "Total Income",
-                                  "RM ${MoneyFormat.display(financialProvider.totalMonthlyIncome)}",
+                                  "RM ${MoneyFormat.displayCalculated(financialProvider.totalMonthlyIncome)}",
                                   Colors.green,
                                   isDark,
                                 ),
@@ -346,7 +346,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     const EdgeInsets.symmetric(horizontal: 6),
                                 child: _buildSummaryItem(
                                   "Total Debt",
-                                  "RM ${MoneyFormat.display(financialProvider.totalDebt)}",
+                                  "RM ${MoneyFormat.displayCalculated(financialProvider.totalDebt)}",
                                   Colors.red,
                                   isDark,
                                 ),
@@ -358,7 +358,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     const EdgeInsets.symmetric(horizontal: 6),
                                 child: _buildSummaryItem(
                                   "Total Assets",
-                                  "RM ${MoneyFormat.display(financialProvider.savings + financialProvider.downPayment)}",
+                                  "RM ${MoneyFormat.displayCalculated(financialProvider.savings + financialProvider.downPayment)}",
                                   Colors.blue,
                                   isDark,
                                 ),
