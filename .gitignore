@@ -49,3 +49,6 @@ scripts/property_pipeline/.env
 scripts/property_pipeline/data/pw_profile/
 scripts/property_pipeline/data/ingest_report.json
 
+# Local secrets — copy from env.dart.example
+lib/constants/env.dart
+
