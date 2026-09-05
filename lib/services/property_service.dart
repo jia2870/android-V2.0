@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/property_model.dart';
 import '../utils/connectivity_helper.dart';
+import '../utils/sql_safety.dart';
 import 'local_cache_service.dart';
 import 'supabase_service.dart';
 
@@ -49,9 +50,10 @@ class PropertyService {
           .from(SupabaseService.propertiesTable)
           .select();
 
-      if (query != null && query.isNotEmpty) {
+      final safeQuery = query == null ? '' : SqlSafety.likeTerm(query);
+      if (safeQuery.isNotEmpty) {
         queryBuilder = queryBuilder.or(
-            'full_address.ilike.%$query%,description.ilike.%$query%'
+          'full_address.ilike.%$safeQuery%,description.ilike.%$safeQuery%',
         );
       }
 
@@ -59,8 +61,10 @@ class PropertyService {
         queryBuilder = queryBuilder.eq('state', state);
       }
 
-      if (district != null && district.isNotEmpty) {
-        queryBuilder = queryBuilder.ilike('district', '%$district%');
+      final safeDistrict =
+          district == null ? '' : SqlSafety.likeTerm(district);
+      if (safeDistrict.isNotEmpty) {
+        queryBuilder = queryBuilder.ilike('district', '%$safeDistrict%');
       }
 
       if (minPrice != null) {
@@ -74,12 +78,15 @@ class PropertyService {
         queryBuilder = queryBuilder.eq('bedrooms', bedrooms);
       }
 
-      if (propertyType != null && propertyType.isNotEmpty) {
-        queryBuilder = queryBuilder.ilike('property_type', '%$propertyType%');
+      final safeType =
+          propertyType == null ? '' : SqlSafety.likeTerm(propertyType);
+      if (safeType.isNotEmpty) {
+        queryBuilder = queryBuilder.ilike('property_type', '%$safeType%');
       }
 
-      if (tenure != null && tenure.isNotEmpty) {
-        queryBuilder = queryBuilder.ilike('tenure', '%$tenure%');
+      final safeTenure = tenure == null ? '' : SqlSafety.likeTerm(tenure);
+      if (safeTenure.isNotEmpty) {
+        queryBuilder = queryBuilder.ilike('tenure', '%$safeTenure%');
       }
 
       final response = await queryBuilder.order('scraped_at', ascending: false);
