@@ -388,7 +388,7 @@ class _AIQuickSetupCardState extends State<AIQuickSetupCard> {
         return _stepBlock(
           title: 'Budget range',
           subtitle: widget.recommendedBudget > 0
-              ? 'Profile budget: ${MoneyFormat.display(widget.recommendedBudget)}'
+              ? 'Profile budget: ${MoneyFormat.displayCalculated(widget.recommendedBudget)}'
               : 'Pick the range that fits you.',
           child: Wrap(
             spacing: 8,

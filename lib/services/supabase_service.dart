@@ -81,13 +81,13 @@ class FinancialProfileModel {
   Map<String, dynamic> toInsertJson() {
     return {
       'user_id': userId,
-      'monthly_salary': monthlySalary,
-      'other_income': otherIncome,
-      'commitments': commitments,
-      'savings': savings,
-      'down_payment': downPayment,
-      'affordability_score': affordabilityScore,
-      'recommended_budget': recommendedBudget,
+      'monthly_salary': _money(monthlySalary),
+      'other_income': _money(otherIncome),
+      'commitments': _money(commitments),
+      'savings': _money(savings),
+      'down_payment': _money(downPayment),
+      'affordability_score': _money(affordabilityScore),
+      'recommended_budget': _money(recommendedBudget),
       'risk_level': riskLevel,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
@@ -96,16 +96,21 @@ class FinancialProfileModel {
 
   Map<String, dynamic> toUpdateJson() {
     return {
-      'monthly_salary': monthlySalary,
-      'other_income': otherIncome,
-      'commitments': commitments,
-      'savings': savings,
-      'down_payment': downPayment,
-      'affordability_score': affordabilityScore,
-      'recommended_budget': recommendedBudget,
+      'monthly_salary': _money(monthlySalary),
+      'other_income': _money(otherIncome),
+      'commitments': _money(commitments),
+      'savings': _money(savings),
+      'down_payment': _money(downPayment),
+      'affordability_score': _money(affordabilityScore),
+      'recommended_budget': _money(recommendedBudget),
       'risk_level': riskLevel,
       'updated_at': DateTime.now().toIso8601String(),
     };
+  }
+
+  static double _money(double value) {
+    if (value.isNaN || value.isInfinite) return 0;
+    return double.parse(value.toStringAsFixed(2));
   }
 }
 

@@ -6,29 +6,48 @@ class MoneyFormat {
 
   static const int decimalDigits = 2;
 
-  static const double maxAmount = 999999999999999;
+  /// Ceiling for user-entered amounts (salary, savings, debts, etc.).
+  static const double maxAmount = 9999999.99;
+
+  /// Safety ceiling for calculated results (recommended budget, totals).
+  static const double maxCalculated = 999999999999.99;
 
   static final NumberFormat _display = NumberFormat('#,##0.00', 'en_US');
   static final NumberFormat _grouped = NumberFormat('#,##0', 'en_US');
 
   static double clamp(num value) {
-    if (value.isNaN) return 0;
+    if (value.isNaN || value.isInfinite) return 0;
     if (value <= 0) return 0;
     if (value >= maxAmount) return maxAmount;
     return value.toDouble();
   }
 
+  /// Clamp calculated money (e.g. recommended budget) — not the input limit.
+  static double clampCalculated(num value) {
+    if (value.isNaN || value.isInfinite) return 0;
+    if (value <= 0) return 0;
+    if (value >= maxCalculated) return maxCalculated;
+    return value.toDouble();
+  }
+
   static String display(num value) => _display.format(clamp(value));
+
+  static String displayCalculated(num value) =>
+      _display.format(clampCalculated(value));
 
   static String toField(num? value) =>
       (value == null || value <= 0) ? '' : display(value);
 
-  static String groupInteger(String digits) =>
-      digits.isEmpty ? '' : _grouped.format(int.parse(digits));
+  static String groupInteger(String digits) {
+    if (digits.isEmpty) return '';
+    final parsed = int.tryParse(digits);
+    if (parsed == null) return digits;
+    return _grouped.format(parsed);
+  }
 
   static double? parse(String? text) {
     if (text == null) return null;
-    final cleaned = text.replaceAll(',', '').trim();
+    final cleaned = text.replaceAll(',', '').replaceAll('\$', '').trim();
     if (cleaned.isEmpty) return null;
     final parsed = double.tryParse(cleaned);
     if (parsed == null) return null;
@@ -43,7 +62,7 @@ class MoneyInputFormatter extends TextInputFormatter {
 
   final int decimalDigits;
 
-  static const int _maxIntegerDigits = 15;
+  static const int _maxIntegerDigits = 7;
 
   @override
   TextEditingValue formatEditUpdate(

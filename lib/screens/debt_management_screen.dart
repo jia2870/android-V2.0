@@ -271,6 +271,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     _selectedDebtType = debtTypes[0];
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) => _buildDebtDialog(isEdit: false),
     );
   }
@@ -285,80 +286,155 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     _remainingMonthsController.text = debt.remainingMonths.toString();
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (context) => _buildDebtDialog(isEdit: true, index: index),
     );
   }
 
   Widget _buildDebtDialog({required bool isEdit, int? index}) {
-    return AlertDialog(
-      title: Text(isEdit ? 'Edit Debt' : 'Add New Debt'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedDebtType,
-                decoration: const InputDecoration(labelText: 'Debt Type'),
-                items: debtTypes.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedDebtType = value);
-                  }
-                },
-              ),
-              if (_selectedDebtType == 'Other')
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Debt Name'),
-                  validator: (value) => value!.isEmpty ? 'Please enter debt name' : null,
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    // Leave a clear gap above the keyboard; scroll the fields inside.
+    final sheetHeight = ((screenHeight - bottomInset) * 0.92).clamp(160.0, screenHeight);
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 80),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Material(
+          color: Theme.of(context).dialogTheme.backgroundColor ??
+              Theme.of(context).colorScheme.surface,
+          elevation: 8,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          clipBehavior: Clip.antiAlias,
+          child: SizedBox(
+            width: double.infinity,
+            height: sheetHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Text(
+                    isEdit ? 'Edit Debt' : 'Add New Debt',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
                 ),
-              MoneyFormField(
-                controller: _totalAmountController,
-                decoration: const InputDecoration(labelText: 'Total Amount (RM)'),
-                validator: (value) => _validateNumber(value, "Total Amount"),
-              ),
-              MoneyFormField(
-                controller: _monthlyPaymentController,
-                decoration: const InputDecoration(labelText: 'Monthly Payment (RM)'),
-                validator: (value) => _validateNumber(value, "Monthly Payment"),
-              ),
-              TextFormField(
-                controller: _interestRateController,
-                decoration: const InputDecoration(labelText: 'Interest Rate (%)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-                validator: (value) => _validateNumber(value, "Interest Rate"),
-              ),
-              TextFormField(
-                controller: _remainingMonthsController,
-                decoration: const InputDecoration(labelText: 'Remaining Months'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) => _validateNumber(value, "Remaining Months"),
-              ),
-            ],
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedDebtType,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Debt Type',
+                            ),
+                            items: debtTypes.map((type) {
+                              return DropdownMenuItem(
+                                value: type,
+                                child: Text(type),
+                              );
+                            }).toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _selectedDebtType = value);
+                              }
+                            },
+                          ),
+                          if (_selectedDebtType == 'Other')
+                            TextFormField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Debt Name',
+                              ),
+                              validator: (value) => value!.isEmpty
+                                  ? 'Please enter debt name'
+                                  : null,
+                            ),
+                          MoneyFormField(
+                            controller: _totalAmountController,
+                            decoration: const InputDecoration(
+                              labelText: 'Total Amount (RM)',
+                            ),
+                            validator: (value) =>
+                                _validateNumber(value, 'Total Amount'),
+                          ),
+                          MoneyFormField(
+                            controller: _monthlyPaymentController,
+                            decoration: const InputDecoration(
+                              labelText: 'Monthly Payment (RM)',
+                            ),
+                            validator: (value) =>
+                                _validateNumber(value, 'Monthly Payment'),
+                          ),
+                          TextFormField(
+                            controller: _interestRateController,
+                            decoration: const InputDecoration(
+                              labelText: 'Interest Rate (%)',
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.]'),
+                              ),
+                            ],
+                            validator: (value) =>
+                                _validateNumber(value, 'Interest Rate'),
+                          ),
+                          TextFormField(
+                            controller: _remainingMonthsController,
+                            decoration: const InputDecoration(
+                              labelText: 'Remaining Months',
+                            ),
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            validator: (value) =>
+                                _validateNumber(value, 'Remaining Months'),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () =>
+                              _saveDebt(isEdit: isEdit, index: index),
+                          child: Text(isEdit ? 'Update' : 'Add'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () => _saveDebt(isEdit: isEdit, index: index),
-          child: Text(isEdit ? 'Update' : 'Add'),
-        ),
-      ],
     );
   }
 
@@ -437,6 +513,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('Debt Management'),
         actions: [

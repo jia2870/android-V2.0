@@ -23,14 +23,22 @@ class PropertyDetailScreen extends StatefulWidget {
 class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   int _selectedImageIndex = 0;
   bool _isSaved = false;
+  PageController? _photoPageController;
   final NeighbourhoodInsightService _insightService = NeighbourhoodInsightService();
   late Future<NeighbourhoodInsight> _insightFuture;
 
   @override
   void initState() {
     super.initState();
+    _photoPageController = PageController(initialPage: 0);
     _checkSavedStatus();
     _insightFuture = _insightService.getInsightForProperty(widget.property);
+  }
+
+  @override
+  void dispose() {
+    _photoPageController?.dispose();
+    super.dispose();
   }
 
   Future<void> _checkSavedStatus() async {
@@ -186,8 +194,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       itemBuilder: (context, index) {
                         final selected = index == _selectedImageIndex;
                         return GestureDetector(
-                          onTap: () =>
-                              setState(() => _selectedImageIndex = index),
+                          onTap: () {
+                            setState(() => _selectedImageIndex = index);
+                            _photoPageController?.jumpToPage(index);
+                          },
                           child: Container(
                             width: 96,
                             decoration: BoxDecoration(
@@ -354,78 +364,133 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     double height = 300,
   }) {
     final hasImages = photoList.isNotEmpty;
-    return Stack(
-      children: [
-        Container(
-          height: height,
-          width: double.infinity,
-          color: Colors.grey[200],
-          child: hasImages
-              ? Image.network(
-            photoList[_selectedImageIndex],
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return const Center(child: CircularProgressIndicator());
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(
-                child: Icon(Icons.error, size: 40, color: Colors.grey),
-              );
-            },
-          )
-              : const Icon(Icons.home, size: 60, color: Colors.grey),
-        ),
-        if (hasImages)
-          Positioned(
-            bottom: 16,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                photoList.length,
-                    (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _selectedImageIndex == index
-                        ? Colors.white
-                        : Colors.white54,
+    final multi = hasImages && photoList.length > 1;
+
+    return SizedBox(
+      height: height,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ColoredBox(
+            color: Colors.grey[200]!,
+            child: hasImages
+                ? PageView.builder(
+                    itemCount: photoList.length,
+                    controller: _photoPageController,
+                    onPageChanged: (index) {
+                      setState(() => _selectedImageIndex = index);
+                    },
+                    itemBuilder: (context, index) {
+                      return Image.network(
+                        photoList[index],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: height,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(
+                              Icons.error,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  )
+                : const Center(
+                    child: Icon(Icons.home, size: 60, color: Colors.grey),
+                  ),
+          ),
+          if (hasImages)
+            Positioned(
+              bottom: 16,
+              left: 0,
+              right: 0,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  photoList.length,
+                  (index) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _selectedImageIndex == index
+                          ? Colors.white
+                          : Colors.white54,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        if (hasImages && photoList.length > 1)
-          Positioned(
-            right: 8,
-            top: MediaQuery.of(context).size.height / 2 - 40,
-            child: IconButton(
-              icon: const Icon(Icons.chevron_right, color: Colors.white, size: 40),
-              onPressed: () {
-                setState(() {
-                  _selectedImageIndex = (_selectedImageIndex + 1) % photoList.length;
-                });
-              },
+          if (multi)
+            Positioned(
+              left: 4,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.black45,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.chevron_left,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: () {
+                      final next =
+                          (_selectedImageIndex - 1 + photoList.length) %
+                              photoList.length;
+                      _photoPageController?.animateToPage(
+                        next,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
-          ),
-        if (hasImages && photoList.length > 1)
-          Positioned(
-            left: 8,
-            top: MediaQuery.of(context).size.height / 2 - 40,
-            child: IconButton(
-              icon: const Icon(Icons.chevron_left, color: Colors.white, size: 40),
-              onPressed: () {
-                setState(() {
-                  _selectedImageIndex = (_selectedImageIndex - 1 + photoList.length) % photoList.length;
-                });
-              },
+          if (multi)
+            Positioned(
+              right: 4,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Material(
+                  color: Colors.black45,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.chevron_right,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                    onPressed: () {
+                      final next =
+                          (_selectedImageIndex + 1) % photoList.length;
+                      _photoPageController?.animateToPage(
+                        next,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                  ),
+                ),
+              ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -649,27 +714,66 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildScoreItem('Population', isLoading ? '...' : insight.populationDisplay, isDark),
-                    _buildScoreItem('Crime', isLoading ? '...' : insight.crimeDisplay, isDark),
-                    _buildScoreItem('Water Usage', isLoading ? '...' : insight.waterDisplay, isDark),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Population',
+                        isLoading ? '...' : insight.populationDisplay,
+                        isDark,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Crime',
+                        isLoading ? '...' : insight.crimeDisplay,
+                        isDark,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Water Usage',
+                        isLoading ? '...' : insight.waterDisplay,
+                        isDark,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildScoreItem('Income', isLoading ? '...' : insight.incomeDisplay, isDark),
-                    _buildScoreItem('Expenditure', isLoading ? '...' : insight.expenditureDisplay, isDark),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Income',
+                        isLoading ? '...' : insight.incomeDisplay,
+                        isDark,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Expenditure',
+                        isLoading ? '...' : insight.expenditureDisplay,
+                        isDark,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildScoreItem('Schools', isLoading ? '...' : insight.schoolsDisplay, isDark),
-                    _buildScoreItem('Hospital Beds', isLoading ? '...' : insight.hospitalBedsDisplay, isDark),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Schools',
+                        isLoading ? '...' : insight.schoolsDisplay,
+                        isDark,
+                      ),
+                    ),
+                    Expanded(
+                      child: _buildScoreItem(
+                        'Hospital Beds',
+                        isLoading ? '...' : insight.hospitalBedsDisplay,
+                        isDark,
+                      ),
+                    ),
                   ],
                 ),
                 if (!isLoading && insight.fallbackNote != null) ...[
@@ -692,26 +796,37 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildScoreItem(String label, String value, bool isDark) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.blue[700],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        children: [
+          Text(
+            value,
+            maxLines: 3,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.blue[700],
+              height: 1.2,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isDark ? Colors.white70 : Colors.grey[600],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 2,
+            softWrap: true,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 10,
+              color: isDark ? Colors.white70 : Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-      ],
+        ],
+      ),
     );
   }
 

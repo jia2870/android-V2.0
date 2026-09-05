@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
@@ -127,9 +129,8 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
   }
 
   Future<void> _saveFinancialData() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
 
     final auth = Provider.of<AuthProvider>(context, listen: false);
     String? userId = auth.getCurrentUserId();
@@ -144,78 +145,107 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
     if (userId == null || userId.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please login first")),
+          const SnackBar(content: Text('Please login first')),
         );
       }
-      setState(() => _isSaving = false);
       return;
     }
 
-    final salary = MoneyFormat.parseOrZero(_monthlySalaryController.text);
-    final otherIncome = MoneyFormat.parseOrZero(_otherIncomeController.text);
-    final commitments = MoneyFormat.parseOrZero(_commitmentsController.text);
-    final savings = MoneyFormat.parseOrZero(_savingsController.text);
-    final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
+    setState(() => _isSaving = true);
 
-    final totalIncome = salary + otherIncome;
-    double score = 0;
-    double budget = 0;
-    String riskLevel = "Low";
+    FinancialProfileModel? profile;
+    try {
+      final salary = MoneyFormat.parseOrZero(_monthlySalaryController.text);
+      final otherIncome = MoneyFormat.parseOrZero(_otherIncomeController.text);
+      final commitments = MoneyFormat.parseOrZero(_commitmentsController.text);
+      final savings = MoneyFormat.parseOrZero(_savingsController.text);
+      final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
 
-    if (totalIncome > 0) {
-      final debtRatio = commitments / totalIncome;
-      score = (100 - (debtRatio * 100)).clamp(30.0, 95.0);
-      budget = totalIncome * 55 + savings * 0.6;
-      if (debtRatio < 0.3) {
-        riskLevel = "Low";
-      } else if (debtRatio < 0.5) {
-        riskLevel = "Medium";
-      } else {
-        riskLevel = "High";
+      final financialProvider =
+          Provider.of<FinancialProvider>(context, listen: false);
+      financialProvider.updateFinancialData(
+        salary: salary,
+        otherIncome: otherIncome,
+        commitments: commitments,
+        savings: savings,
+        downPayment: downPayment,
+      );
+
+      profile = FinancialProfileModel(
+        id: '',
+        userId: userId,
+        monthlySalary: salary,
+        otherIncome: otherIncome,
+        commitments: commitments,
+        savings: savings,
+        downPayment: downPayment,
+        affordabilityScore: financialProvider.affordabilityScore,
+        recommendedBudget: financialProvider.recommendedBudget,
+        riskLevel: financialProvider.riskLevel,
+      );
+
+      debugPrint(
+        'SAVE: salary=$salary budget=${profile.recommendedBudget} '
+        'score=${profile.affordabilityScore}',
+      );
+    } catch (e, stack) {
+      debugPrint('SAVE prepare error: $e\n$stack');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not prepare save: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
       }
     }
 
-    final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
-    financialProvider.updateFinancialData(
-      salary: salary,
-      otherIncome: otherIncome,
-      commitments: commitments,
-      savings: savings,
-      downPayment: downPayment,
-    );
-
-    final profile = FinancialProfileModel(
-      id: '',
-      userId: userId,
-      monthlySalary: salary,
-      otherIncome: otherIncome,
-      commitments: commitments,
-      savings: savings,
-      downPayment: downPayment,
-      affordabilityScore: score,
-      recommendedBudget: budget,
-      riskLevel: riskLevel,
-    );
-
-    try {
-      await _financialService.saveOrUpdateProfile(profile);
+    if (profile != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Financial data saved to cloud!")),
+          const SnackBar(
+            content: Text('Saving...'),
+            duration: Duration(seconds: 1),
+          ),
         );
+      }
+      unawaited(_persistFinancialProfile(profile));
+    }
+  }
+
+  Future<void> _persistFinancialProfile(FinancialProfileModel profile) async {
+    try {
+      final synced = await _financialService
+          .saveOrUpdateProfile(profile)
+          .timeout(
+            const Duration(seconds: 8),
+            onTimeout: () {
+              debugPrint('SAVE: cloud sync timed out after 8s');
+              return false;
+            },
+          );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            synced
+                ? 'Financial data saved to cloud!'
+                : 'Saved on this device only. Cloud sync failed or timed out.',
+          ),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      if (synced && Navigator.canPop(context)) {
         Navigator.pop(context);
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error saving: ${e.toString()}")),
-        );
-      }
-      debugPrint('Save error: $e');
-    }
-
-    if (mounted) {
-      setState(() => _isSaving = false);
+    } catch (e, stack) {
+      debugPrint('Persist error: $e\n$stack');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved locally. Cloud error: $e')),
+      );
     }
   }
 
@@ -304,7 +334,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     const EdgeInsets.symmetric(horizontal: 6),
                                 child: _buildSummaryItem(
                                   "Total Income",
-                                  "RM ${MoneyFormat.display(financialProvider.totalMonthlyIncome)}",
+                                  "RM ${MoneyFormat.displayCalculated(financialProvider.totalMonthlyIncome)}",
                                   Colors.green,
                                   isDark,
                                 ),
@@ -316,7 +346,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     const EdgeInsets.symmetric(horizontal: 6),
                                 child: _buildSummaryItem(
                                   "Total Debt",
-                                  "RM ${MoneyFormat.display(financialProvider.totalDebt)}",
+                                  "RM ${MoneyFormat.displayCalculated(financialProvider.totalDebt)}",
                                   Colors.red,
                                   isDark,
                                 ),
@@ -328,7 +358,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     const EdgeInsets.symmetric(horizontal: 6),
                                 child: _buildSummaryItem(
                                   "Total Assets",
-                                  "RM ${MoneyFormat.display(financialProvider.savings + financialProvider.downPayment)}",
+                                  "RM ${MoneyFormat.displayCalculated(financialProvider.savings + financialProvider.downPayment)}",
                                   Colors.blue,
                                   isDark,
                                 ),
@@ -475,16 +505,20 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
 
                 SizedBox(
                   width: double.infinity,
-                  child: _isSaving
-                      ? const Center(child: CircularProgressIndicator())
-                      : ElevatedButton(
-                    onPressed: _saveFinancialData,
+                  child: ElevatedButton(
+                    onPressed: _isSaving ? null : _saveFinancialData,
                     style: ElevatedButton.styleFrom(
                       side: BorderSide(
                         color: isDark ? Colors.white : Colors.transparent,
                       ),
                     ),
-                    child: const Text("Save & Calculate Affordability"),
+                    child: _isSaving
+                        ? const SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save & Calculate Affordability'),
                   ),
                 ),
 
@@ -551,7 +585,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                                     FittedBox(
                                       fit: BoxFit.scaleDown,
                                       child: Text(
-                                        "RM ${MoneyFormat.display(financialProvider.recommendedBudget)}",
+                                        "RM ${MoneyFormat.displayCalculated(financialProvider.recommendedBudget)}",
                                         maxLines: 1,
                                         style: TextStyle(
                                           fontSize: 28,
