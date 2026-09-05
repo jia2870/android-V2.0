@@ -6,6 +6,7 @@ import 'providers/connectivity_provider.dart';
 import 'providers/financial_provider.dart';
 import 'providers/saved_provider.dart';
 import 'providers/theme_provider.dart';
+import 'services/local_cache_service.dart';
 import 'services/supabase_service.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
@@ -33,9 +34,10 @@ Future<void> _syncNativeSystemBars({required bool isDark}) async {
   }
 }
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService().initialize();
+  await LocalCacheService.instance.init();
   await applyPreferredOrientationsForDevice(isPhone: isPhoneFromWindow());
 
   final connectivity = ConnectivityProvider();
