@@ -100,6 +100,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
             Center(
               child: Column(
@@ -145,6 +146,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             DropdownButtonFormField<String>(
               initialValue: _selectedState,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'State',
                 prefixIcon: Icon(Icons.location_on_outlined),
@@ -152,7 +154,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               dropdownColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
               items: _states
-                  .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                  .map((s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s, overflow: TextOverflow.ellipsis),
+                      ))
                   .toList(),
               onChanged: (value) {
                 if (value != null) setState(() => _selectedState = value);

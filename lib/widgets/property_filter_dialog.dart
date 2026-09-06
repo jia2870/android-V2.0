@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../utils/money_format.dart';
+import 'keyboard_safe.dart';
 import 'money_form_field.dart';
 
 class PropertyFilterSelection {
@@ -139,221 +140,248 @@ class _PropertyFilterDialogState extends State<PropertyFilterDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      insetPadding: const EdgeInsets.all(16),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 480,
-          maxHeight: MediaQuery.sizeOf(context).height * 0.9,
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
-              child: Row(
+    // Read keyboard height from the route *before* KeyboardSafeDialog
+    // strips viewInsets so the sheet size stays fixed.
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return KeyboardSafeDialog(
+      overlayKeyboard: true,
+      child: Column(
+        children: [
+          _buildHeader(),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + keyboardInset),
+              child: Column(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Filter Properties',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Close',
-                  ),
+                  _buildFilterFields(keyboardInset),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  _buildFooter(),
                 ],
               ),
             ),
-            const Divider(height: 1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 8, 8),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Filter Properties',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.close),
+            tooltip: 'Close',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(
+                context,
+                const PropertyFilterSelection(clearAll: true),
+              ),
+              child: const Text('Clear Filters'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton(
+              onPressed: _apply,
+              child: const Text('Apply Filters'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterFields(double keyboardInset) {
+    final priceScrollPadding = EdgeInsets.only(bottom: keyboardInset + 88);
+    return Column(
+      children: [
+        DropdownButtonFormField<String>(
+          initialValue: _state,
+          isExpanded: true,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          decoration: const InputDecoration(
+            labelText: 'State',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: null,
+              child: Text('All States'),
+            ),
+            ...widget.states.map(
+              (state) => DropdownMenuItem(
+                value: state,
+                child: Text(state),
+              ),
+            ),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _state = value;
+              _district = null;
+              _districts = [];
+            });
+            if (value != null) _loadDistricts(value);
+          },
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          key: ValueKey(_state),
+          initialValue: _district,
+          isExpanded: true,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          decoration: InputDecoration(
+            labelText: 'District',
+            border: const OutlineInputBorder(),
+            suffixIcon: _loadingDistricts
+                ? const Padding(
+                    padding: EdgeInsets.all(14),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: null,
+              child: Text('All Districts'),
+            ),
+            ..._districts.map(
+              (district) => DropdownMenuItem(
+                value: district,
+                child: Text(district),
+              ),
+            ),
+          ],
+          onChanged: _loadingDistricts
+              ? null
+              : (value) => setState(() => _district = value),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          initialValue: _propertyType,
+          isExpanded: true,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          decoration: const InputDecoration(
+            labelText: 'Property Type',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: null,
+              child: Text('All Types'),
+            ),
+            ...widget.propertyTypes.map(
+              (type) => DropdownMenuItem(value: type, child: Text(type)),
+            ),
+          ],
+          onChanged: (value) => setState(() => _propertyType = value),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String>(
+          initialValue: _tenure,
+          isExpanded: true,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          decoration: const InputDecoration(
+            labelText: 'Tenure',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            const DropdownMenuItem(
+              value: null,
+              child: Text('All Tenure'),
+            ),
+            ...widget.tenureTypes.map(
+              (tenure) => DropdownMenuItem(
+                value: tenure,
+                child: Text(tenure),
+              ),
+            ),
+          ],
+          onChanged: (value) => setState(() => _tenure = value),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<int>(
+          initialValue: _bedrooms,
+          isExpanded: true,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          decoration: const InputDecoration(
+            labelText: 'Bedrooms',
+            border: OutlineInputBorder(),
+          ),
+          items: [
+            const DropdownMenuItem(value: null, child: Text('Any')),
+            ...widget.bedroomOptions.map(
+              (bedrooms) => DropdownMenuItem(
+                value: bedrooms,
+                child: Text('$bedrooms+'),
+              ),
+            ),
+          ],
+          onChanged: (value) => setState(() => _bedrooms = value),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<String>(
-                      initialValue: _state,
-                      decoration: const InputDecoration(
-                        labelText: 'State',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All States'),
-                        ),
-                        ...widget.states.map(
-                          (state) => DropdownMenuItem(
-                            value: state,
-                            child: Text(state),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _state = value;
-                          _district = null;
-                          _districts = [];
-                        });
-                        if (value != null) _loadDistricts(value);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(_state),
-                      initialValue: _district,
-                      decoration: InputDecoration(
-                        labelText: 'District',
-                        border: const OutlineInputBorder(),
-                        suffixIcon: _loadingDistricts
-                            ? const Padding(
-                                padding: EdgeInsets.all(14),
-                                child: SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All Districts'),
-                        ),
-                        ..._districts.map(
-                          (district) => DropdownMenuItem(
-                            value: district,
-                            child: Text(district),
-                          ),
-                        ),
-                      ],
-                      onChanged: _loadingDistricts
-                          ? null
-                          : (value) => setState(() => _district = value),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: _propertyType,
-                      decoration: const InputDecoration(
-                        labelText: 'Property Type',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All Types'),
-                        ),
-                        ...widget.propertyTypes.map(
-                          (type) =>
-                              DropdownMenuItem(value: type, child: Text(type)),
-                        ),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => _propertyType = value),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: _tenure,
-                      decoration: const InputDecoration(
-                        labelText: 'Tenure',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('All Tenure'),
-                        ),
-                        ...widget.tenureTypes.map(
-                          (tenure) => DropdownMenuItem(
-                            value: tenure,
-                            child: Text(tenure),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) => setState(() => _tenure = value),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      initialValue: _bedrooms,
-                      decoration: const InputDecoration(
-                        labelText: 'Bedrooms',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem(value: null, child: Text('Any')),
-                        ...widget.bedroomOptions.map(
-                          (bedrooms) => DropdownMenuItem(
-                            value: bedrooms,
-                            child: Text('$bedrooms+'),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) => setState(() => _bedrooms = value),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: MoneyFormField(
-                            controller: _minPriceController,
-                            decoration: const InputDecoration(
-                              labelText: 'Min Price',
-                              prefixText: 'RM ',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: MoneyFormField(
-                            controller: _maxPriceController,
-                            decoration: const InputDecoration(
-                              labelText: 'Max Price',
-                              prefixText: 'RM ',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+              child: MoneyFormField(
+                controller: _minPriceController,
+                scrollPadding: priceScrollPadding,
+                decoration: const InputDecoration(
+                  labelText: 'Min Price',
+                  prefixText: 'RM ',
+                  border: OutlineInputBorder(),
                 ),
               ),
             ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(
-                        context,
-                        const PropertyFilterSelection(clearAll: true),
-                      ),
-                      child: const Text('Clear Filters'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _apply,
-                      child: const Text('Apply Filters'),
-                    ),
-                  ),
-                ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: MoneyFormField(
+                controller: _maxPriceController,
+                scrollPadding: priceScrollPadding,
+                decoration: const InputDecoration(
+                  labelText: 'Max Price',
+                  prefixText: 'RM ',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }

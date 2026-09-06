@@ -5,6 +5,7 @@ import '../models/recommendation_model.dart';
 import '../providers/theme_provider.dart';
 import '../services/ai_advisor_chat_service.dart';
 import '../utils/money_format.dart';
+import '../widgets/keyboard_safe.dart';
 
 class AIAdvisorChatScreen extends StatefulWidget {
   const AIAdvisorChatScreen({super.key, required this.result});
@@ -122,9 +123,7 @@ class _AIAdvisorChatScreenState extends State<AIAdvisorChatScreen> {
               ],
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          KeyboardSafeBottomBar(
               child: Row(
                 children: [
                   Expanded(
@@ -153,7 +152,6 @@ class _AIAdvisorChatScreenState extends State<AIAdvisorChatScreen> {
                 ],
               ),
             ),
-          ),
         ],
       ),
     );

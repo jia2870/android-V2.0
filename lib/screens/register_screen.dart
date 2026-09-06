@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/password_rules.dart';
+import '../widgets/keyboard_safe.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 import 'saved_properties_screen.dart';
@@ -125,12 +126,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Register")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: KeyboardSafeBody(
+        centerWhenShort: true,
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
+          child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.app_registration, size: 60, color: Colors.blue),
@@ -213,6 +213,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _selectedState,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: "Select State/Region",
                     border: OutlineInputBorder(),
@@ -221,7 +222,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   items: states.map((state) {
                     return DropdownMenuItem(
                       value: state,
-                      child: Text(state),
+                      child: Text(state, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (value) {
@@ -248,7 +249,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: const Text("Already have an account? Login"),
                 ),
               ],
-            ),
           ),
         ),
       ),

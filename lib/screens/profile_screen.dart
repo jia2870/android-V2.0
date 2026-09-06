@@ -37,6 +37,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: _onTabTapped,
       appBar: AppBar(
         title: const Text("Profile"),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -51,7 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       horizontal: 6),
                                   child: _buildSummaryItem(
                                     'Commitments',
-                                    'RM ${MoneyFormat.display(financial.commitments)}',
+                                    'RM ${MoneyFormat.displayCalculated(financial.commitments)}',
                                     Colors.red,
                                     isDark,
                                   ),

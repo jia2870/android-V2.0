@@ -11,6 +11,8 @@ class MoneyFormField extends StatefulWidget {
     this.onChanged,
     this.onTap,
     this.readOnly = false,
+    this.scrollPadding = const EdgeInsets.all(20),
+    this.calculated = false,
   });
 
   final TextEditingController controller;
@@ -20,6 +22,11 @@ class MoneyFormField extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback? onTap;
   final bool readOnly;
+  final EdgeInsets scrollPadding;
+
+  /// Use the calculated-money ceiling so summed totals are not capped at
+  /// [MoneyFormat.maxAmount] (e.g. Monthly Commitments from all debts).
+  final bool calculated;
 
   @override
   State<MoneyFormField> createState() => _MoneyFormFieldState();
@@ -43,10 +50,13 @@ class _MoneyFormFieldState extends State<MoneyFormField> {
 
   void _normalizeOnBlur() {
     if (_focusNode.hasFocus) return;
-    final value = MoneyFormat.parse(widget.controller.text);
+    final value = MoneyFormat.parse(
+      widget.controller.text,
+      calculated: widget.calculated,
+    );
     if (value == null) return;
 
-    final normalized = MoneyFormat.display(value);
+    final normalized = MoneyFormat.display(value, calculated: widget.calculated);
     if (normalized == widget.controller.text) return;
 
     widget.controller.value = TextEditingValue(
@@ -61,14 +71,18 @@ class _MoneyFormFieldState extends State<MoneyFormField> {
     return TextFormField(
       controller: widget.controller,
       focusNode: _focusNode,
+      autofocus: false,
       decoration: widget.decoration,
       style: widget.style,
       readOnly: widget.readOnly,
       onTap: widget.onTap,
       onChanged: widget.onChanged,
       validator: widget.validator,
+      scrollPadding: widget.scrollPadding,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: const [MoneyInputFormatter()],
+      inputFormatters: [
+        MoneyInputFormatter(calculated: widget.calculated),
+      ],
     );
   }
 }

@@ -122,7 +122,10 @@ class AdaptiveNavScaffold extends StatelessWidget {
       actions: source.actions,
       backgroundColor: source.backgroundColor,
       foregroundColor: source.foregroundColor,
-      elevation: source.elevation,
+      elevation: source.elevation ?? 0,
+      scrolledUnderElevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       centerTitle: source.centerTitle,
       bottom: source.bottom,
       flexibleSpace: source.flexibleSpace,
@@ -159,6 +162,7 @@ class AdaptiveNavScaffold extends StatelessWidget {
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Row(
         children: [
           _TabletSideNav(

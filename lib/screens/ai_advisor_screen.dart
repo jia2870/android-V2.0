@@ -18,6 +18,7 @@ import '../utils/money_format.dart';
 import '../models/quick_setup_draft.dart';
 import '../widgets/adaptive_nav_scaffold.dart';
 import '../widgets/ai_quick_setup_card.dart';
+import '../widgets/keyboard_safe.dart';
 import 'ai_recommendation_result_screen.dart';
 import 'financial_assessment_screen.dart';
 
@@ -538,42 +539,40 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
   }
 
   Widget _buildFinancialRequired(bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.account_balance_wallet_outlined,
-                size: 56, color: isDark ? Colors.blue[200] : Colors.blue),
-            const SizedBox(height: 16),
-            Text(
-              'Complete your financial profile',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+    return OverflowSafeFill(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.account_balance_wallet_outlined,
+              size: 56, color: isDark ? Colors.blue[200] : Colors.blue),
+          const SizedBox(height: 16),
+          Text(
+            'Complete your financial profile',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'I need your income and commitments to estimate loan affordability before recommending properties.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: isDark ? Colors.white70 : Colors.grey[700]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'I need your income and commitments to estimate loan affordability before recommending properties.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.grey[700]),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _openFinancialSettings,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _openFinancialSettings,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              ),
-              child: const Text('Set up financial profile'),
-            ),
-          ],
-        ),
+            child: const Text('Set up financial profile'),
+          ),
+        ],
       ),
     );
   }
@@ -689,6 +688,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
           child: Padding(
             padding: EdgeInsets.fromLTRB(12, 0, 12, compactHeight ? 4 : 12),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [

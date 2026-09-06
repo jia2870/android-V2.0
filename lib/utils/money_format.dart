@@ -30,13 +30,14 @@ class MoneyFormat {
     return value.toDouble();
   }
 
-  static String display(num value) => _display.format(clamp(value));
+  static String display(num value, {bool calculated = false}) =>
+      _display.format(calculated ? clampCalculated(value) : clamp(value));
 
   static String displayCalculated(num value) =>
-      _display.format(clampCalculated(value));
+      display(value, calculated: true);
 
-  static String toField(num? value) =>
-      (value == null || value <= 0) ? '' : display(value);
+  static String toField(num? value, {bool calculated = false}) =>
+      (value == null || value <= 0) ? '' : display(value, calculated: calculated);
 
   static String groupInteger(String digits) {
     if (digits.isEmpty) return '';
@@ -45,24 +46,30 @@ class MoneyFormat {
     return _grouped.format(parsed);
   }
 
-  static double? parse(String? text) {
+  static double? parse(String? text, {bool calculated = false}) {
     if (text == null) return null;
     final cleaned = text.replaceAll(',', '').replaceAll('\$', '').trim();
     if (cleaned.isEmpty) return null;
     final parsed = double.tryParse(cleaned);
     if (parsed == null) return null;
-    return clamp(parsed);
+    return calculated ? clampCalculated(parsed) : clamp(parsed);
   }
 
-  static double parseOrZero(String? text) => parse(text) ?? 0;
+  static double parseOrZero(String? text, {bool calculated = false}) =>
+      parse(text, calculated: calculated) ?? 0;
 }
 
 class MoneyInputFormatter extends TextInputFormatter {
-  const MoneyInputFormatter({this.decimalDigits = MoneyFormat.decimalDigits});
+  const MoneyInputFormatter({
+    this.decimalDigits = MoneyFormat.decimalDigits,
+    this.calculated = false,
+  });
 
   final int decimalDigits;
+  final bool calculated;
 
   static const int _maxIntegerDigits = 7;
+  static const int _maxCalculatedIntegerDigits = 12;
 
   @override
   TextEditingValue formatEditUpdate(
@@ -103,7 +110,9 @@ class MoneyInputFormatter extends TextInputFormatter {
     final integerPart = integerInput.replaceFirst(RegExp(r'^0+(?=\d)'), '');
     keptBeforeCaret -= integerInput.length - integerPart.length;
 
-    if (integerPart.length > _maxIntegerDigits) return oldValue;
+    final maxDigits =
+        calculated ? _maxCalculatedIntegerDigits : _maxIntegerDigits;
+    if (integerPart.length > maxDigits) return oldValue;
 
     final buffer = StringBuffer(MoneyFormat.groupInteger(integerPart));
     if (decimalInput != null) {

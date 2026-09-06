@@ -48,6 +48,17 @@ void main() {
       expect(MoneyFormat.toField(1e18), MoneyFormat.display(MoneyFormat.maxAmount));
     });
 
+    test('calculated totals are not capped at the per-field max', () {
+      expect(
+        MoneyFormat.toField(10001299, calculated: true),
+        '10,001,299.00',
+      );
+      expect(
+        MoneyFormat.parse('10,001,299.00', calculated: true),
+        10001299.0,
+      );
+    });
+
     test('survives a display -> parse -> display round trip', () {
       for (final amount in [0.0, 5.0, 999.99, 8000.0, 1234567.89]) {
         expect(MoneyFormat.parse(MoneyFormat.display(amount)), amount);

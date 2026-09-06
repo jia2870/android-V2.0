@@ -356,68 +356,75 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: compactHeight ? 8 : 16,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search in saved properties...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+      body: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: compactHeight ? 8 : 16,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search in saved properties...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _searchProperties();
+                                },
+                              )
+                            : null,
                       ),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                _searchController.clear();
-                                _searchProperties();
-                              },
-                            )
-                          : null,
+                      onSubmitted: (_) => _searchProperties(),
                     ),
-                    onSubmitted: (_) => _searchProperties(),
                   ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _searchProperties,
-                  child: const Text('Search'),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: _searchProperties,
+                    child: const Text('Search'),
+                  ),
+                ],
+              ),
             ),
           ),
-
-          if (_showFilters && !wideLandscape) _buildFilters(),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${_filteredProperties.length} saved properties',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-                if (_showFilters)
-                  TextButton(
-                    onPressed: _clearFilters,
-                    child: const Text('Clear All'),
+          if (_showFilters && !wideLandscape)
+            SliverToBoxAdapter(child: _buildFilters()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${_filteredProperties.length} saved properties',
+                      style: TextStyle(color: Colors.grey[600]),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-              ],
+                  if (_showFilters)
+                    TextButton(
+                      onPressed: _clearFilters,
+                      child: const Text('Clear All'),
+                    ),
+                ],
+              ),
             ),
           ),
-
           if (_errorMessage != null)
-            Expanded(
+            SliverFillRemaining(
+              hasScrollBody: false,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Container(
@@ -435,6 +442,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                     ),
                   ),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
                         _errorMessage!.contains('No saved properties')
@@ -473,24 +481,28 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                   ),
                 ),
               ),
-            ),
-
-          if (_errorMessage == null)
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filteredProperties.isEmpty && _properties.isEmpty
-                  ? const SizedBox()
-                  : tabletMode
-                  ? _buildTabletPropertyGrid()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _filteredProperties.length,
-                      itemBuilder: (context, index) {
-                        final property = _filteredProperties[index];
-                        return _buildPropertyCard(property);
-                      },
-                    ),
+            )
+          else if (_isLoading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_filteredProperties.isEmpty && _properties.isEmpty)
+            const SliverToBoxAdapter(child: SizedBox.shrink())
+          else if (tabletMode)
+            SliverToBoxAdapter(child: _buildTabletPropertyGrid())
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final property = _filteredProperties[index];
+                    return _buildPropertyCard(property);
+                  },
+                  childCount: _filteredProperties.length,
+                ),
+              ),
             ),
         ],
       ),
@@ -514,7 +526,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
         final itemWidth =
             (usableWidth - gap * (crossAxisCount - 1)) / crossAxisCount;
 
-        return SingleChildScrollView(
+        return Padding(
           padding: const EdgeInsets.all(16),
           child: Wrap(
             spacing: gap,
@@ -676,17 +688,6 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
         ],
       ),
     );
-
-    if (MediaQuery.sizeOf(context).height < 500) {
-      final height = (MediaQuery.sizeOf(context).height * 0.35).clamp(
-        100.0,
-        180.0,
-      );
-      return SizedBox(
-        height: height,
-        child: SingleChildScrollView(child: panel),
-      );
-    }
 
     return panel;
   }

@@ -50,6 +50,9 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         backgroundColor: Colors.blue,
         foregroundColor: Colors.white,
         systemOverlayStyle: SystemUiOverlayStyle(
@@ -183,6 +186,9 @@ class AppTheme {
       appBarTheme: const AppBarTheme(
         centerTitle: false,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         backgroundColor: Color(0xFF1A1A2E),
         foregroundColor: Colors.white,
         systemOverlayStyle: SystemUiOverlayStyle(

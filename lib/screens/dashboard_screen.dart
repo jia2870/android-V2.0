@@ -329,191 +329,220 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          const OfflineBanner(),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              tabletMode ? 20 : 16,
-              compactHeight ? 8 : 14,
-              tabletMode ? 20 : 16,
-              compactHeight ? 4 : 8,
-            ),
-            child: Material(
-              elevation: isDark ? 0 : 1,
-              shadowColor: Colors.black26,
-              color: isDark ? theme.cardColor : Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: BorderSide(
-                  color: isDark ? theme.dividerColor : Colors.grey.shade200,
-                ),
+      body: CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        slivers: [
+          const SliverToBoxAdapter(child: OfflineBanner()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                tabletMode ? 20 : 16,
+                compactHeight ? 8 : 14,
+                tabletMode ? 20 : 16,
+                compactHeight ? 4 : 8,
               ),
-              child: Padding(
-                padding: EdgeInsets.all(compactHeight ? 10 : 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search by title, address...',
-                          prefixIcon: Icon(
-                            Icons.search_rounded,
-                            color: theme.colorScheme.primary,
-                          ),
-                          filled: true,
-                          fillColor: isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : const Color(0xFFF4F7FB),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide.none,
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            borderSide: BorderSide(
-                              color: theme.colorScheme.primary.withValues(
-                                alpha: 0.5,
+              child: Material(
+                elevation: isDark ? 0 : 1,
+                shadowColor: Colors.black26,
+                color: isDark ? theme.cardColor : Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(
+                    color: isDark ? theme.dividerColor : Colors.grey.shade200,
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.all(compactHeight ? 10 : 14),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Search by title, address...',
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              color: theme.colorScheme.primary,
+                            ),
+                            filled: true,
+                            fillColor: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : const Color(0xFFF4F7FB),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.primary.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close_rounded),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      _searchProperties();
+                                    },
+                                  )
+                                : null,
                           ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                            icon: const Icon(Icons.close_rounded),
-                            onPressed: () {
-                              _searchController.clear();
-                              _searchProperties();
-                            },
-                          )
-                              : null,
-                        ),
-                        onSubmitted: (_) => _searchProperties(),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    FilledButton.icon(
-                      onPressed: _searchProperties,
-                      icon: const Icon(Icons.search_rounded, size: 18),
-                      label: const Text('Search'),
-                      style: FilledButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: compactHeight ? 12 : 18,
-                          vertical: compactHeight ? 12 : 14,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          onSubmitted: (_) => _searchProperties(),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 10),
+                      FilledButton.icon(
+                        onPressed: _searchProperties,
+                        icon: const Icon(Icons.search_rounded, size: 18),
+                        label: const Text('Search'),
+                        style: FilledButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compactHeight ? 12 : 18,
+                            vertical: compactHeight ? 12 : 14,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-          if (_showFilters && !wideLandscape) _buildFilters(),
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              tabletMode ? 20 : 16,
-              4,
-              tabletMode ? 20 : 16,
-              8,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.home_work_outlined,
-                      size: 18,
-                      color: theme.colorScheme.primary,
+          if (_showFilters && !wideLandscape)
+            SliverToBoxAdapter(child: _buildFilters()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                tabletMode ? 20 : 16,
+                4,
+                tabletMode ? 20 : 16,
+                8,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.home_work_outlined,
+                          size: 18,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '${_filteredProperties.length} properties found',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color:
+                                  isDark ? Colors.white70 : Colors.grey.shade700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '${_filteredProperties.length} properties found',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white70 : Colors.grey.shade700,
-                      ),
-                    ),
-                  ],
-                ),
-                if (_showFilters || _hasActiveFilters)
-                  TextButton.icon(
-                    onPressed: _clearFilters,
-                    icon: const Icon(Icons.filter_alt_off_outlined, size: 16),
-                    label: const Text('Clear All'),
                   ),
-              ],
+                  if (_showFilters || _hasActiveFilters)
+                    TextButton.icon(
+                      onPressed: _clearFilters,
+                      icon: const Icon(
+                        Icons.filter_alt_off_outlined,
+                        size: 16,
+                      ),
+                      label: const Text('Clear All'),
+                    ),
+                ],
+              ),
             ),
           ),
           if (_errorMessage != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.error_outline, color: Colors.red[400]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: TextStyle(color: Colors.red[800]),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.red[400]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _errorMessage!,
+                          style: TextStyle(color: Colors.red[800]),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _filteredProperties.isEmpty
-                ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search_off, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No properties found',
-                    style: TextStyle(color: Colors.grey),
+          if (_isLoading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_filteredProperties.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        'No properties found',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Try adjusting your filters',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Try adjusting your filters',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
+                ),
               ),
             )
-                : tabletMode
-                ? _buildTabletPropertyGrid(saved)
-                : ListView.builder(
+          else if (tabletMode)
+            SliverToBoxAdapter(child: _buildTabletPropertyGrid(saved))
+          else
+            SliverPadding(
               padding: const EdgeInsets.all(16),
-              itemCount: _filteredProperties.length,
-              itemBuilder: (context, index) {
-                final property = _filteredProperties[index];
-                final isSaved = saved.isSaved(property.listingId);
-                return _buildPropertyCard(property, isSaved);
-              },
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final property = _filteredProperties[index];
+                    final isSaved = saved.isSaved(property.listingId);
+                    return _buildPropertyCard(property, isSaved);
+                  },
+                  childCount: _filteredProperties.length,
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -534,7 +563,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final itemWidth =
             (usableWidth - gap * (crossAxisCount - 1)) / crossAxisCount;
 
-        return SingleChildScrollView(
+        return Padding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
           child: Wrap(
             spacing: gap,
@@ -711,17 +740,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
-
-    if (MediaQuery.sizeOf(context).height < 500) {
-      final height = (MediaQuery.sizeOf(context).height * 0.35).clamp(
-        100.0,
-        180.0,
-      );
-      return SizedBox(
-        height: height,
-        child: SingleChildScrollView(child: panel),
-      );
-    }
 
     return panel;
   }

@@ -136,6 +136,7 @@ class _LoanCalculatorScreenState extends State<LoanCalculatorScreen> {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
             Text(
               'Property Price',

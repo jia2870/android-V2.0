@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/financial_provider.dart';
 import '../utils/money_format.dart';
+import '../widgets/keyboard_safe.dart';
 import '../widgets/money_form_field.dart';
 
 class AssetManagementScreen extends StatefulWidget {
@@ -42,8 +43,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       appBar: AppBar(title: const Text('Asset Management')),
       body: Consumer<FinancialProvider>(
         builder: (context, provider, child) {
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
+          return KeyboardSafeBody(
             child: Form(
               key: _formKey,
               child: Column(
@@ -153,3 +153,4 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     );
   }
 }
+

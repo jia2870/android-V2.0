@@ -51,4 +51,7 @@ scripts/property_pipeline/data/ingest_report.json
 
 # Local secrets — copy from env.dart.example
 lib/constants/env.dart
+.env
+
+.cursor
 
