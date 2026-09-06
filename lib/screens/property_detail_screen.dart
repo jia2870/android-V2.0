@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/property_model.dart';
 import '../providers/auth_provider.dart';
@@ -77,16 +76,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         ),
       );
     }
-  }
-
-  void _copyLinkToClipboard(String link) {
-    Clipboard.setData(ClipboardData(text: link));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Link copied to clipboard!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
   void _onTabTapped(int index) {
@@ -307,8 +296,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         const SizedBox(height: 16),
         if (property.agentName != null && property.agentName!.isNotEmpty)
           _buildAgentSection(property, isDark),
-        if (property.listingUrl != null && property.listingUrl!.isNotEmpty)
-          _buildShareableLinkSection(property, isDark),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
@@ -867,52 +854,4 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     );
   }
 
-  Widget _buildShareableLinkSection(PropertyModel property, bool isDark) {
-    return Card(
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Shareable Link',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () => _copyLinkToClipboard(property.listingUrl!),
-              child: Row(
-                children: [
-                  const Icon(Icons.link, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      property.listingUrl!,
-                      style: TextStyle(
-                        color: isDark ? Colors.blue[300] : Colors.blue,
-                        fontSize: 14,
-                        decoration: TextDecoration.underline,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.copy,
-                    size: 18,
-                    color: isDark ? Colors.white70 : Colors.grey[600],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
