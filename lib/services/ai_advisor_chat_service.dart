@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../constants/env.dart';
+import '../models/property_model.dart';
 import '../models/recommendation_model.dart';
 import '../utils/affordability_context.dart';
 
@@ -56,6 +57,7 @@ class AIAdvisorChatService {
     String? savedPreferenceSummary,
     String? collectedPreferencesSummary,
     List<String> missingFields = const [],
+    PropertyModel? focusedListing,
   }) async {
     final hasCollectedPrefs =
         collectedPreferencesSummary != null &&
@@ -66,6 +68,8 @@ class AIAdvisorChatService {
         userMessage: userMessage,
         preferenceSummary: collectedPreferencesSummary ?? savedPreferenceSummary,
         hasCollectedPrefs: hasCollectedPrefs,
+        focusedListing: focusedListing,
+        snapshot: snapshot,
       );
     }
 
@@ -74,6 +78,7 @@ class AIAdvisorChatService {
       savedPreferenceSummary: savedPreferenceSummary,
       collectedPreferencesSummary: collectedPreferencesSummary,
       missingFields: missingFields,
+      focusedListing: focusedListing,
     );
 
     try {
@@ -135,8 +140,46 @@ class AIAdvisorChatService {
     String? savedPreferenceSummary,
     String? collectedPreferencesSummary,
     List<String> missingFields = const [],
+    PropertyModel? focusedListing,
   }) {
-    final buffer = StringBuffer()
+    final buffer = StringBuffer();
+    if (focusedListing != null) {
+      final listing = focusedListing;
+      final afford = PropertyAffordability.forPrice(
+        price: listing.price,
+        buyer: snapshot,
+      );
+      buffer
+        ..writeln('You are a Malaysian property advisor analyzing ONE listing the user already opened.')
+        ..writeln('Do NOT ask for property type, location, or bedrooms as if they are starting a new search.')
+        ..writeln('Answer about THIS listing: affordability, DSR, monthly installment, budget fit.')
+        ..writeln('If they ask whether they can afford it, give a clear yes/no with the numbers.')
+        ..writeln('Keep replies under 90 words, in English.')
+        ..writeln()
+        ..writeln('OPENED LISTING:')
+        ..writeln('- Title: ${listing.mainTitle}')
+        ..writeln('- Address: ${listing.shortAddress}')
+        ..writeln('- Price: RM${listing.price ?? 0}')
+        ..writeln('- Type: ${listing.propertyType ?? 'n/a'}')
+        ..writeln('- Bedrooms: ${listing.bedrooms ?? 'n/a'}')
+        ..writeln('- Est. loan (90% LTV): RM${afford.loanAmount.round()}')
+        ..writeln('- Est. monthly installment: RM${afford.monthlyInstallment.round()}')
+        ..writeln('- DSR with this loan: ${afford.dsrPercent.toStringAsFixed(1)}%')
+        ..writeln('- Within recommended budget: ${afford.withinRecommendedBudget}')
+        ..writeln()
+        ..writeln('Reply with JSON only:')
+        ..writeln('{')
+        ..writeln('  "reply": "your conversational message",')
+        ..writeln('  "ready_for_recommendations": false')
+        ..writeln('}')
+        ..writeln('Always set ready_for_recommendations to false unless they clearly ask to search OTHER homes.')
+        ..writeln()
+        ..writeln('BUYER FINANCES:')
+        ..writeln(snapshot.formatForPrompt());
+      return buffer.toString();
+    }
+
+    buffer
       ..writeln('You are a friendly Malaysian property advisor in discovery mode.')
       ..writeln('Help the buyer refine what property they want in natural language.')
       ..writeln('Ask at most ONE clarifying question if something important is missing.')
@@ -213,7 +256,25 @@ class AIAdvisorChatService {
     required String userMessage,
     String? preferenceSummary,
     required bool hasCollectedPrefs,
+    PropertyModel? focusedListing,
+    BuyerAffordabilitySnapshot? snapshot,
   }) {
+    if (focusedListing != null && snapshot != null) {
+      final afford = PropertyAffordability.forPrice(
+        price: focusedListing.price,
+        buyer: snapshot,
+      );
+      final price = focusedListing.price ?? 0;
+      final canAfford = afford.withinRecommendedBudget;
+      return DiscoverChatResult(
+        reply:
+            'This listing (${focusedListing.shortAddress}) is RM$price. '
+            'Estimated monthly installment is about RM${afford.monthlyInstallment.round()} '
+            '(DSR ${afford.dsrPercent.toStringAsFixed(0)}%). '
+            '${canAfford ? 'It is within your recommended budget of RM${snapshot.recommendedBudget.round()}.' : 'It is above your recommended budget of RM${snapshot.recommendedBudget.round()}.'}',
+        readyForRecommendations: false,
+      );
+    }
     if (userMessage.trim().isEmpty) {
       return const DiscoverChatResult(
         reply: 'Tell me what you are looking for — area, property type, bedrooms, '

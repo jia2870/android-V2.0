@@ -23,6 +23,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   int _selectedImageIndex = 0;
   bool _isSaved = false;
   PageController? _photoPageController;
+  Orientation? _lastOrientation;
   final NeighbourhoodInsightService _insightService = NeighbourhoodInsightService();
   late Future<NeighbourhoodInsight> _insightFuture;
 
@@ -32,6 +33,21 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     _photoPageController = PageController(initialPage: 0);
     _checkSavedStatus();
     _insightFuture = _insightService.getInsightForProperty(widget.property);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final orientation = MediaQuery.orientationOf(context);
+    if (_lastOrientation == orientation) return;
+    _lastOrientation = orientation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final controller = _photoPageController;
+      if (controller != null && controller.hasClients) {
+        controller.jumpToPage(_selectedImageIndex);
+      }
+    });
   }
 
   @override
@@ -162,69 +178,94 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     String displayPrice,
     bool isDark,
   ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          flex: 5,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildImageCarousel(property, photoList, height: 360),
-                if (photoList.length > 1) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 72,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: photoList.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (context, index) {
-                        final selected = index == _selectedImageIndex;
-                        return GestureDetector(
-                          onTap: () {
-                            setState(() => _selectedImageIndex = index);
-                            _photoPageController?.jumpToPage(index);
-                          },
-                          child: Container(
-                            width: 96,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: selected
-                                    ? Colors.blue
-                                    : Colors.transparent,
-                                width: 2,
+    return SafeArea(
+      top: false,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 560;
+          final bottomInset = MediaQuery.paddingOf(context).bottom;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                flex: 5,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                  child: compact
+                      ? _buildImageCarousel(
+                          property,
+                          photoList,
+                          height: (constraints.maxHeight - 24).clamp(160, 420),
+                          overlayThumbnails: photoList.length > 1,
+                        )
+                      : SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              _buildImageCarousel(
+                                property,
+                                photoList,
+                                height: 360,
                               ),
-                              image: DecorationImage(
-                                image: NetworkImage(photoList[index]),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+                              if (photoList.length > 1) ...[
+                                const SizedBox(height: 12),
+                                _buildThumbnailStrip(photoList),
+                              ],
+                            ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                ),
+              ),
+              Expanded(
+                flex: 4,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(8, 12, 16, 28 + bottomInset),
+                  child: _buildDetailsColumn(
+                    property,
+                    facilityList,
+                    displayPrice,
+                    isDark,
                   ),
-                ],
-              ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildThumbnailStrip(List<String> photoList, {double height = 72}) {
+    return SizedBox(
+      height: height,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: photoList.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final selected = index == _selectedImageIndex;
+          return GestureDetector(
+            onTap: () {
+              setState(() => _selectedImageIndex = index);
+              _photoPageController?.jumpToPage(index);
+            },
+            child: Container(
+              width: 96,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected ? Colors.blue : Colors.transparent,
+                  width: 2,
+                ),
+                image: DecorationImage(
+                  image: NetworkImage(photoList[index]),
+                  fit: BoxFit.cover,
+                ),
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          flex: 4,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(8, 16, 20, 24),
-            child: _buildDetailsColumn(
-              property,
-              facilityList,
-              displayPrice,
-              isDark,
-            ),
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 
@@ -349,76 +390,86 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     PropertyModel property,
     List<String> photoList, {
     double height = 300,
+    bool overlayThumbnails = false,
   }) {
     final hasImages = photoList.isNotEmpty;
     final multi = hasImages && photoList.length > 1;
 
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          ColoredBox(
-            color: Colors.grey[200]!,
-            child: hasImages
-                ? PageView.builder(
-                    itemCount: photoList.length,
-                    controller: _photoPageController,
-                    onPageChanged: (index) {
-                      setState(() => _selectedImageIndex = index);
-                    },
-                    itemBuilder: (context, index) {
-                      return Image.network(
-                        photoList[index],
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: height,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(
-                              Icons.error,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  )
-                : const Center(
-                    child: Icon(Icons.home, size: 60, color: Colors.grey),
-                  ),
-          ),
-          if (hasImages)
-            Positioned(
-              bottom: 16,
-              left: 0,
-              right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  photoList.length,
-                  (index) => Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _selectedImageIndex == index
-                          ? Colors.white
-                          : Colors.white54,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(
+              color: Colors.grey[200]!,
+              child: hasImages
+                  ? PageView.builder(
+                      itemCount: photoList.length,
+                      controller: _photoPageController,
+                      onPageChanged: (index) {
+                        setState(() => _selectedImageIndex = index);
+                      },
+                      itemBuilder: (context, index) {
+                        return Image.network(
+                          photoList[index],
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: height,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Center(
+                              child: Icon(
+                                Icons.error,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    )
+                  : const Center(
+                      child: Icon(Icons.home, size: 60, color: Colors.grey),
+                    ),
+            ),
+            if (hasImages && !overlayThumbnails)
+              Positioned(
+                bottom: 16,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    photoList.length,
+                    (index) => Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _selectedImageIndex == index
+                            ? Colors.white
+                            : Colors.white54,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+            if (overlayThumbnails && multi)
+              Positioned(
+                left: 8,
+                right: 8,
+                bottom: 8,
+                child: _buildThumbnailStrip(photoList, height: 56),
+              ),
           if (multi)
             Positioned(
               left: 4,
@@ -477,6 +528,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
               ),
             ),
         ],
+        ),
       ),
     );
   }

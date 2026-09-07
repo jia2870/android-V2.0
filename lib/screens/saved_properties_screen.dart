@@ -545,11 +545,16 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
   }
 
   Widget _buildFilters() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final panelColor = isDark ? theme.cardColor : Colors.grey[50];
+    final borderColor = isDark ? theme.dividerColor : Colors.grey[200]!;
+
     final panel = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        color: panelColor,
+        border: Border(bottom: BorderSide(color: borderColor)),
       ),
       child: Column(
         children: [

@@ -172,6 +172,7 @@ class AdaptiveNavScaffold extends StatelessWidget {
           const VerticalDivider(width: 1, thickness: 1),
           Expanded(
             child: Scaffold(
+              resizeToAvoidBottomInset: true,
               appBar: resolvedAppBar,
               body: body,
               floatingActionButton: floatingActionButton,

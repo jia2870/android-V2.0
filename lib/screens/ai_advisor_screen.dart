@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/property_model.dart';
@@ -39,6 +39,8 @@ class _ChatLine {
 class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
   final _chatController = TextEditingController();
   final _scrollController = ScrollController();
+  final _chatFocus = FocusNode();
+  final _quickSetupKey = GlobalKey();
 
   final FinancialService _financialService = FinancialService();
   final PropertyPreferenceService _preferenceService = PropertyPreferenceService();
@@ -77,6 +79,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
   void dispose() {
     _chatController.dispose();
     _scrollController.dispose();
+    _chatFocus.dispose();
     super.dispose();
   }
 
@@ -128,8 +131,8 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
   void _seedWelcome() {
     final financial = Provider.of<FinancialProvider>(context, listen: false);
     final buffer = StringBuffer(
-      'Hi! I\'m your property advisor. Answer the quick setup below — '
-      'purpose, area, type, bedrooms, and budget — like a real agent would.\n\n'
+      'Hi! I\'m your property advisor. Answer the quick setup below  - '
+      'purpose, area, type, bedrooms, and budget  - like a real agent would.\n\n'
       'Then we can fine-tune in chat, or skip and describe everything yourself.',
     );
 
@@ -142,7 +145,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
 
     if (widget.property != null) {
       buffer.write(
-        '\n\nYou opened a specific listing — describe your goals, then tap '
+        '\n\nYou opened a specific listing  - describe your goals, then tap '
         'Analyze this property, or search again for other matches.',
       );
     }
@@ -171,10 +174,10 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
   }
 
   String _buildSetupAcknowledgment(ExtractedPreferences prefs) {
-    return 'Perfect — I have your basics:\n${prefs.summary}.\n\n'
+    return 'Perfect  - I have your basics:\n${prefs.summary}.\n\n'
         'Anything else that matters? For example near MRT, parking, high floor, '
         'or areas to avoid.\n\n'
-        'Tell me below, then say ok when you are ready to search — '
+        'Tell me below, then say ok when you are ready to search  - '
         'or tap Search now anytime.';
   }
 
@@ -247,6 +250,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
       userMessage: text,
       collectedPreferencesSummary: _guidedPrefs?.summary,
       missingFields: _optionalMissingFields(),
+      focusedListing: widget.property,
     );
 
     if (!mounted) return;
@@ -292,7 +296,7 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Tell me what you\'re looking for first — type a message or tap a suggestion.',
+            'Tell me what you\'re looking for first  - type a message or tap a suggestion.',
           ),
         ),
       );
@@ -581,239 +585,242 @@ class _AIAdvisorScreenState extends State<AIAdvisorScreen> {
     final financial = Provider.of<FinancialProvider>(context);
     final busy = _chatSending || _isRecommending;
     final compactHeight = MediaQuery.sizeOf(context).height < 500;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final slimComposer = keyboardOpen || compactHeight;
 
-    return Column(
-      children: [
-        if (financial.totalMonthlyIncome > 0)
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: compactHeight ? 4 : 10,
-            ),
-            color: isDark ? const Color(0xFF1E1E2E) : Colors.blue[50],
-            child: Text(
-              'Income ${MoneyFormat.displayCalculated(financial.totalMonthlyIncome)} · '
-              'Budget ${MoneyFormat.displayCalculated(financial.recommendedBudget)}',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? Colors.white70 : Colors.blue[900],
-              ),
+    final banners = <Widget>[
+      if (financial.totalMonthlyIncome > 0)
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: compactHeight ? 4 : 10,
+          ),
+          color: isDark ? const Color(0xFF1E1E2E) : Colors.blue[50],
+          child: Text(
+            'Income ${MoneyFormat.displayCalculated(financial.totalMonthlyIncome)} · '
+            'Budget ${MoneyFormat.displayCalculated(financial.recommendedBudget)}',
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.white70 : Colors.blue[900],
             ),
           ),
-        if (_guidedPrefs != null) _buildPreferenceSummary(isDark),
-        if (widget.property != null) _buildPropertyBanner(isDark),
-        Expanded(
-          child: ListView(
-            controller: _scrollController,
-            padding: EdgeInsets.all(compactHeight ? 8 : 16),
+        ),
+      if (_guidedPrefs != null) _buildPreferenceSummary(isDark),
+      if (widget.property != null) _buildPropertyBanner(isDark),
+    ];
+
+    final thread = <Widget>[
+      if (_shouldShowQuickSetup && !_chatSending) ...[
+        AIQuickSetupCard(
+          key: _quickSetupKey,
+          isDark: isDark,
+          recommendedBudget: financial.recommendedBudget,
+          onComplete: _completeQuickSetup,
+          onSkip: _skipQuickSetup,
+        ),
+        SizedBox(height: compactHeight ? 8 : 12),
+      ],
+      for (final msg in _messages) ...[
+        _MessageBubble(message: msg, isDark: isDark),
+        const SizedBox(height: 10),
+      ],
+      if (!_shouldShowQuickSetup &&
+          _messages.length <= 1 &&
+          !_chatSending &&
+          _skippedQuickSetup) ...[
+        Text(
+          'Try saying:',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white70 : Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _suggestions
+              .map(
+                (s) => ActionChip(
+                  label: Text(s, style: const TextStyle(fontSize: 12)),
+                  onPressed: busy ? null : () => _sendChat(s),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+      if (_chatSending || _isRecommending)
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (compactHeight && _shouldShowQuickSetup && !_chatSending) ...[
-                AIQuickSetupCard(
-                  isDark: isDark,
-                  recommendedBudget: financial.recommendedBudget,
-                  onComplete: _completeQuickSetup,
-                  onSkip: _skipQuickSetup,
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _isRecommending ? 'Finding matches...' : 'Thinking...',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.white54 : Colors.grey[600],
                 ),
-                const SizedBox(height: 8),
-              ],
-              for (final msg in _messages) ...[
-                _MessageBubble(message: msg, isDark: isDark),
-                const SizedBox(height: 10),
-              ],
-              if (!compactHeight &&
-                  _shouldShowQuickSetup &&
-                  !_chatSending) ...[
-                AIQuickSetupCard(
-                  isDark: isDark,
-                  recommendedBudget: financial.recommendedBudget,
-                  onComplete: _completeQuickSetup,
-                  onSkip: _skipQuickSetup,
-                ),
-                const SizedBox(height: 12),
-              ],
-              if (!_shouldShowQuickSetup &&
-                  _messages.length <= 1 &&
-                  !_chatSending &&
-                  _skippedQuickSetup) ...[
-                Text(
-                  'Try saying:',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white70 : Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _suggestions
-                      .map(
-                        (s) => ActionChip(
-                          label: Text(s, style: const TextStyle(fontSize: 12)),
-                          onPressed: busy ? null : () => _sendChat(s),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
-              if (_chatSending || _isRecommending)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        _isRecommending
-                            ? 'Finding matches…'
-                            : 'Thinking…',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? Colors.white54 : Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              ),
             ],
           ),
         ),
+    ];
+
+    final list = ListView(
+      controller: _scrollController,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: EdgeInsets.all(compactHeight ? 8 : 16),
+      children: thread,
+    );
+
+    return Column(
+      children: [
+        if (!keyboardOpen) ...banners,
+        Expanded(child: list),
         SafeArea(
+          top: false,
+          bottom: !keyboardOpen,
           child: Padding(
-            padding: EdgeInsets.fromLTRB(12, 0, 12, compactHeight ? 4 : 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _chatController,
-                        enabled: !busy,
-                        decoration: InputDecoration(
-                          hintText: _quickSetupComplete
-                              ? 'Add extras (MRT, parking…) or say ok'
-                              : 'Describe your ideal property…',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 10,
-                          ),
-                        ),
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: busy ? null : (_) => _sendChat(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton.filled(
-                      onPressed: busy ? null : () => _sendChat(),
-                      icon: const Icon(Icons.send),
-                    ),
-                  ],
-                ),
-                SizedBox(height: compactHeight ? 3 : 8),
-                if (widget.property != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : _proceedToAnalysis,
-                      icon: const Icon(Icons.analytics_outlined),
-                      label: const Text('Analyze this property'),
-                    ),
-                  ),
-                if (widget.property != null) const SizedBox(height: 8),
-                if (_quickSetupComplete &&
-                    !_isRecommending &&
-                    !compactHeight &&
-                    widget.property == null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'Add details in chat and say ok when ready — or tap Search now.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? Colors.white54 : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                if (_hasUserInput && widget.property == null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : _runAIRecommendation,
-                      icon: _isRecommending
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh),
-                      label: Text(
-                        _isRecommending
-                            ? 'Finding matches…'
-                            : (_hasCompletedRecommendation
-                                ? 'Search again'
-                                : 'Search now'),
-                      ),
-                    ),
-                  )
-                else if (_hasUserInput && widget.property != null)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: busy ? null : _runAIRecommendation,
-                      icon: _isRecommending
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Icon(Icons.auto_awesome),
-                      label: Text(
-                        _isRecommending
-                            ? 'Finding matches…'
-                            : 'Search other matches',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      vertical: compactHeight ? 2 : 8,
-                    ),
-                    child: Text(
-                      _shouldShowQuickSetup
-                          ? 'Complete quick setup above, or skip and type below.'
-                          : 'Describe your needs above — recommendations unlock after you send a message.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: compactHeight ? 10 : 12,
-                        color: isDark ? Colors.white54 : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            padding: EdgeInsets.fromLTRB(12, 0, 12, slimComposer ? 4 : 12),
+            child: _buildComposer(isDark, busy, slim: slimComposer),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildComposer(bool isDark, bool busy, {required bool slim}) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _chatController,
+                focusNode: _chatFocus,
+                enabled: !busy,
+                decoration: InputDecoration(
+                  hintText: _quickSetupComplete
+                      ? 'Add extras (MRT, parking...) or say ok'
+                      : 'Describe your ideal property...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                ),
+                textInputAction: TextInputAction.send,
+                onSubmitted: busy ? null : (_) => _sendChat(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              onPressed: busy ? null : () => _sendChat(),
+              icon: const Icon(Icons.send),
+            ),
+          ],
+        ),
+        if (!slim) ...[
+          const SizedBox(height: 8),
+          if (widget.property != null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : _proceedToAnalysis,
+                icon: const Icon(Icons.analytics_outlined),
+                label: const Text('Analyze this property'),
+              ),
+            ),
+          if (widget.property != null) const SizedBox(height: 8),
+          if (_quickSetupComplete &&
+              !_isRecommending &&
+              widget.property == null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                'Add details in chat and say ok when ready - or tap Search now.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white54 : Colors.grey[600],
+                ),
+              ),
+            ),
+          if (_hasUserInput && widget.property == null)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : _runAIRecommendation,
+                icon: _isRecommending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh),
+                label: Text(
+                  _isRecommending
+                      ? 'Finding matches...'
+                      : (_hasCompletedRecommendation
+                          ? 'Search again'
+                          : 'Search now'),
+                ),
+              ),
+            )
+          else if (_hasUserInput && widget.property != null)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: busy ? null : _runAIRecommendation,
+                icon: _isRecommending
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(
+                  _isRecommending
+                      ? 'Finding matches...'
+                      : 'Search other matches',
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                _shouldShowQuickSetup
+                    ? 'Complete quick setup above, or skip and type below.'
+                    : 'Describe your needs above - recommendations unlock after you send a message.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.white54 : Colors.grey[600],
+                ),
+              ),
+            ),
+        ],
       ],
     );
   }
