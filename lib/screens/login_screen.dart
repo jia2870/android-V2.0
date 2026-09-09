@@ -5,6 +5,7 @@ import 'forgot_password_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/financial_provider.dart';
+import '../utils/ai_access_prompt.dart';
 import 'saved_properties_screen.dart';
 import 'profile_screen.dart';
 import 'ai_advisor_screen.dart';
@@ -47,12 +48,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
 
     if (success) {
-      // ✅ Check if the user exists in the users table
-      // If the user was deleted but auth session still exists, this will fail
       final user = await auth.getUserByEmail(_emailController.text);
 
       if (user == null) {
-        // ✅ User doesn't exist in users table - force logout
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -86,9 +84,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // ===============================
-  // Bottom Navigation
-  // ===============================
   void onTabTapped(int index) {
     if (index == 0) {
       final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -108,9 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
       final financial = Provider.of<FinancialProvider>(context, listen: false);
       if (financial.monthlySalary <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete your financial assessment first')),
-        );
+        showCompleteFinancialAssessmentPrompt(context);
         return;
       }
       Navigator.pushReplacement(
@@ -147,77 +140,104 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Login")),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.home_work, size: 60, color: Colors.blue),
-            const SizedBox(height: 20),
-            const Text(
-              'Welcome Back!',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  kToolbarHeight -
+                  kBottomNavigationBarHeight -
+                  32,
             ),
-            const SizedBox(height: 8),
-            const Text('Sign in to continue', style: TextStyle(color: Colors.grey)),
-            const SizedBox(height: 30),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: "Email",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.email),
+            child: IntrinsicHeight(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.home_work, size: 60, color: Colors.blue),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Welcome Back!',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sign in to continue',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 30),
+                  TextField(
+                    controller: _emailController,
+                    decoration: const InputDecoration(
+                      labelText: "Email",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(
+                      labelText: "Password",
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility
+                              : Icons.visibility_off,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
+                    onSubmitted: (_) => _login(),
+                  ),
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ForgotPasswordScreen(),
+                        ),
+                      ),
+                      child: const Text("Forgot Password?"),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _login,
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            child: const Text("Login"),
+                          ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const RegisterScreen(),
+                      ),
+                    ),
+                    child: const Text("Don't have an account? Register"),
+                  ),
+                ],
               ),
-              keyboardType: TextInputType.emailAddress,
             ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _passwordController,
-              decoration: InputDecoration(
-                labelText: "Password",
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.lock),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                ),
-              ),
-              obscureText: _obscurePassword,
-              onSubmitted: (_) => _login(),
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()),
-                ),
-                child: const Text("Forgot Password?"),
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                onPressed: _login,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: const Text("Login"),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RegisterScreen()),
-              ),
-              child: const Text("Don't have an account? Register"),
-            ),
-          ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(

@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/financial_provider.dart';
 import '../providers/theme_provider.dart';
-import '../providers/language_provider.dart';
 import '../providers/saved_provider.dart';
 import '../services/supabase_service.dart';
+import '../utils/device_layout.dart';
+import '../widgets/adaptive_nav_scaffold.dart';
+import 'change_password_screen.dart';
 import 'login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,19 +18,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // ============================================================
-  // State Variables
-  // ============================================================
   bool _isDeletingAccount = false;
 
-  // Delete Account Dialog Controllers
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   String? _deleteError;
 
-  // ============================================================
-  // Init
-  // ============================================================
   @override
   void initState() {
     super.initState();
@@ -40,9 +35,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  // ============================================================
-  // Delete Account Logic - ✅ COMPLETELY FIXED
-  // ============================================================
   Future<void> _deleteAccount() async {
     if (_passwordController.text.isEmpty) {
       setState(() {
@@ -83,7 +75,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      // ✅ Step 1: Verify password
       try {
         final signInResponse = await supabase.auth.signInWithPassword(
           email: email,
@@ -109,65 +100,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      // ✅ Step 2: Delete ALL user data from Supabase tables
       try {
-        // Delete financial profiles
         await supabase
             .from('financial_profiles')
             .delete()
             .eq('user_id', userId);
 
-        // Delete debts
         await supabase
             .from('debts')
             .delete()
             .eq('user_id', userId);
 
-        // Delete property preferences
         await supabase
             .from('property_preferences')
             .delete()
             .eq('user_id', userId);
 
-        // Delete saved properties
         await supabase
             .from('saved_properties')
             .delete()
             .eq('user_id', userId);
 
-        // Delete user profile from users table
         await supabase
             .from('users')
             .delete()
             .eq('id', userId);
 
-        // ✅ Step 3: CRITICAL - Delete the Auth user from Supabase Auth
-        // This prevents the user from logging in again
         try {
-          // Get the current user's ID from auth
           final currentUser = supabase.auth.currentUser;
           if (currentUser != null) {
-            // For Supabase, we need to use the admin API to delete users
-            // Since we're using client-side, we'll sign out and the user
-            // will be deleted from the auth system
             await supabase.auth.signOut();
 
-            // Note: In Supabase, the auth user is automatically deleted
-            // when we delete the user from the users table if we have
-            // a foreign key relationship with ON DELETE CASCADE
           }
         } catch (e) {
           debugPrint('Error deleting auth user: $e');
         }
 
-        // ✅ Step 4: Sign out from Supabase Auth
         await supabase.auth.signOut();
 
-        // ✅ Step 5: Clear ALL provider data locally
         final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
         final savedProvider = Provider.of<SavedProvider>(context, listen: false);
 
-        // Clear AuthProvider data - set to default/guest state
         auth.isLoggedIn = false;
         auth.userName = "Guest";
         auth.email = "";
@@ -178,13 +151,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         auth.errorMessage = null;
         auth.notifyListeners();
 
-        // Clear FinancialProvider data
         financialProvider.clearAllData();
 
-        // Clear SavedProvider data
         savedProvider.clear();
 
-        // ✅ Step 6: Show success message
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -195,7 +165,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           );
         }
 
-        // ✅ Step 7: Navigate to Login Screen and clear all history
         if (mounted) {
           await Future.delayed(const Duration(milliseconds: 500));
           Navigator.pushAndRemoveUntil(
@@ -225,27 +194,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ============================================================
-  // Build
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final languageProvider = Provider.of<LanguageProvider>(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-      ),
-      body: ListView(
-        children: [
-          // ============================================
-          // Appearance Section
-          // ============================================
+    final appBar = AppBar(
+      title: const Text('Settings'),
+    );
+
+    final content = ListView(
+      children: [
           _buildSectionHeader('Appearance'),
 
-          // Dark Mode
           SwitchListTile(
             key: ValueKey(themeProvider.isDarkMode),
             title: const Text('Dark Mode'),
@@ -263,56 +224,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const Divider(),
 
-          // ============================================
-          // Language Section
-          // ============================================
-          _buildSectionHeader('Language'),
+          if (auth.isLoggedIn) ...[
+            _buildSectionHeader('Account'),
 
-          // Language Selector
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: DropdownButtonFormField<String>(
-              key: ValueKey(languageProvider.locale.languageCode),
-              value: languageProvider.locale.languageCode,
-              decoration: const InputDecoration(
-                labelText: 'Select Language',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.language),
-              ),
-              items: languageProvider.getSupportedLanguages().map((lang) {
-                return DropdownMenuItem(
-                  value: lang['code'],
-                  child: Text(lang['name']!),
+            ListTile(
+              leading: const Icon(Icons.lock_outline, color: Colors.blue),
+              title: const Text('Change Password'),
+              subtitle: const Text('Update the password you use to sign in'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ChangePasswordScreen(),
+                  ),
                 );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  languageProvider.setLanguage(value);
-                  setState(() {});
-                }
               },
             ),
-          ),
 
-          // Display current language
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              'Current: ${languageProvider.getCurrentLanguageName()}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-          ),
-
-          const Divider(),
-
-          // ============================================
-          // Account Section (Only when logged in)
-          // ============================================
-          if (auth.isLoggedIn) ...[
-            _buildSectionHeader('Account', color: Colors.red),
+            _buildSectionHeader('Danger Zone', color: Colors.red),
 
             ListTile(
               leading: const Icon(Icons.delete_forever, color: Colors.red),
@@ -343,14 +273,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-        ],
-      ),
+      ],
+    );
+
+    if (!isTabletUiActive(context)) {
+      return Scaffold(appBar: appBar, body: content);
+    }
+
+    return AdaptiveNavScaffold(
+      currentIndex: AppNavIndex.settings,
+      automaticallyImplyLeading: true,
+      appBar: appBar,
+      body: content,
     );
   }
 
-  // ============================================================
-  // UI Helper Methods
-  // ============================================================
 
   Widget _buildSectionHeader(String title, {Color color = Colors.blue}) {
     return Padding(
@@ -366,9 +303,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ============================================================
-  // Delete Account Confirmation Dialog
-  // ============================================================
   void _showDeleteConfirmationDialog() {
     _passwordController.clear();
     _deleteError = null;
@@ -473,12 +407,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               ElevatedButton(
                 onPressed: _isDeletingAccount ? null : () async {
-                  // Close the dialog
                   if (Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }
 
-                  // Show deleting progress dialog
                   if (mounted) {
                     showDialog(
                       context: context,
@@ -497,10 +429,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     );
                   }
 
-                  // Perform deletion
                   await _deleteAccount();
 
-                  // Close progress dialog if it's still open
                   if (mounted && Navigator.canPop(context)) {
                     Navigator.pop(context);
                   }

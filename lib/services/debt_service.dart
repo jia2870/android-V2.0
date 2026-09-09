@@ -1,14 +1,17 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/connectivity_helper.dart';
+import 'local_cache_service.dart';
 import 'supabase_service.dart';
 
 class DebtService {
   final SupabaseClient _client = SupabaseService().client;
+  final LocalCacheService _cache = LocalCacheService.instance;
 
-  // 创建债务
   Future<DebtModel> createDebt(DebtModel debt) async {
     try {
       final data = debt.toInsertJson();
-      data.remove('id');  // 移除 id 让数据库自动生成
+      data.remove('id');
 
       final response = await _client
           .from(SupabaseService.debtsTable)
@@ -16,44 +19,55 @@ class DebtService {
           .select()
           .single();
 
-      return DebtModel.fromJson(response);
+      final created = DebtModel.fromJson(response);
+      final debts = await getDebtsByUserId(created.userId);
+      await _cache.saveDebts(created.userId, debts);
+      return created;
     } catch (e) {
       throw Exception('Failed to create debt: $e');
     }
   }
 
-  // 获取用户的所有债务
   Future<List<DebtModel>> getDebtsByUserId(String userId) async {
+    if (!await isDeviceOnline()) {
+      return _cache.getDebts(userId);
+    }
     try {
       final response = await _client
           .from(SupabaseService.debtsTable)
           .select()
           .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .timeout(const Duration(seconds: 8));
 
-      return response.map<DebtModel>((json) => DebtModel.fromJson(json)).toList();
+      final debts =
+          response.map<DebtModel>((json) => DebtModel.fromJson(json)).toList();
+      await _cache.saveDebts(userId, debts);
+      return debts;
     } catch (e) {
-      throw Exception('Failed to get debts: $e');
+      debugPrint('getDebtsByUserId network error, trying cache: $e');
+      return _cache.getDebts(userId);
     }
   }
 
-  // 更新债务
   Future<DebtModel> updateDebt(DebtModel debt) async {
     try {
       final response = await _client
           .from(SupabaseService.debtsTable)
           .update(debt.toUpdateJson())
-          .eq('id', debt.id)  // 使用 id
+          .eq('id', debt.id)
           .select()
           .single();
 
-      return DebtModel.fromJson(response);
+      final updated = DebtModel.fromJson(response);
+      final debts = await getDebtsByUserId(updated.userId);
+      await _cache.saveDebts(updated.userId, debts);
+      return updated;
     } catch (e) {
       throw Exception('Failed to update debt: $e');
     }
   }
 
-  // 删除债务
   Future<void> deleteDebt(String debtId) async {
     try {
       await _client
@@ -65,7 +79,6 @@ class DebtService {
     }
   }
 
-  // 获取当前用户 ID
   String? getCurrentUserId() {
     final session = _client.auth.currentSession;
     return session?.user.id;

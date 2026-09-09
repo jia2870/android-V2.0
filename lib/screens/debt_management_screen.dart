@@ -6,6 +6,10 @@ import '../providers/financial_provider.dart';
 import '../services/debt_service.dart';
 import '../services/financial_service.dart';
 import '../services/supabase_service.dart';
+import '../utils/ai_access_prompt.dart';
+import '../utils/money_format.dart';
+import '../widgets/keyboard_safe.dart';
+import '../widgets/money_form_field.dart';
 import 'dashboard_screen.dart';
 import 'saved_properties_screen.dart';
 import 'profile_screen.dart';
@@ -34,8 +38,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
   List<DebtModel> _debts = [];
   bool _isLoading = true;
 
-  // 底部导航索引
-  int _currentIndex = 3; // Profile
+  int _currentIndex = 3;
 
   final List<String> debtTypes = const [
     'Car Loan',
@@ -46,18 +49,13 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     'Other'
   ];
 
-  // ============================================================
-  // 底部导航切换
-  // ============================================================
   void _onTabTapped(int index) {
     if (index == 0) {
-      // Home
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
     } else if (index == 1) {
-      // AI
       final auth = Provider.of<AuthProvider>(context, listen: false);
       final financial = Provider.of<FinancialProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
@@ -67,9 +65,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         return;
       }
       if (financial.monthlySalary <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please complete your financial assessment first')),
-        );
+        showCompleteFinancialAssessmentPrompt(context);
         return;
       }
       Navigator.pushReplacement(
@@ -79,7 +75,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         ),
       );
     } else if (index == 2) {
-      // Saved
       final auth = Provider.of<AuthProvider>(context, listen: false);
       if (!auth.isLoggedIn) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -92,7 +87,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         MaterialPageRoute(builder: (_) => const SavedPropertiesScreen()),
       );
     } else if (index == 3) {
-      // Profile
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const ProfileScreen()),
@@ -123,17 +117,26 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     if (userId != null && userId.isNotEmpty) {
       try {
         _debts = await _debtService.getDebtsByUserId(userId);
+        if (!mounted) return;
 
-        // 计算总 commitments
         double totalCommitments = _debts.fold(0, (sum, d) => sum + d.monthlyPayment);
 
-        // 更新 FinancialProvider - 使用 recalculate 方法
         final financialProvider = Provider.of<FinancialProvider>(context, listen: false);
-        financialProvider.commitments = totalCommitments;
-        // 使用公开的 recalculate 方法
-        financialProvider.recalculate();
+        financialProvider.replaceDebts(
+          _debts
+              .map(
+                (debt) => Debt(
+                  type: debt.type,
+                  name: debt.name,
+                  totalAmount: debt.totalAmount,
+                  monthlyPayment: debt.monthlyPayment,
+                  interestRate: debt.interestRate,
+                  remainingMonths: debt.remainingMonths,
+                ),
+              )
+              .toList(),
+        );
 
-        // 同时更新数据库中的 financial_profile
         await _updateFinancialProfileCommitments(userId, totalCommitments);
       } catch (e) {
         debugPrint('Load debts error: $e');
@@ -145,7 +148,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     }
   }
 
-  // 更新 Financial Profile 中的 commitments
   Future<void> _updateFinancialProfileCommitments(String userId, double totalCommitments) async {
     try {
       final existingProfile = await _financialService.getProfileByUserId(userId);
@@ -172,13 +174,38 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     }
   }
 
+  static const double maxInterestRate = 20;
+  static const int maxRemainingMonths = 480;
+
   String? _validateNumber(String? value, String fieldName) {
     if (value == null || value.isEmpty) return "Please enter $fieldName";
-    if (double.tryParse(value) == null) {
+    final amount = MoneyFormat.parse(value);
+    if (amount == null) {
       return "Please enter a valid number";
     }
-    if (double.parse(value) < 0) {
+    if (amount < 0) {
       return "$fieldName cannot be negative";
+    }
+    return null;
+  }
+
+  String? _validateInterestRate(String? value) {
+    final error = _validateNumber(value, 'Interest Rate');
+    if (error != null) return error;
+    final rate = double.parse(value!);
+    if (rate > maxInterestRate) {
+      return 'Interest rate cannot exceed $maxInterestRate%';
+    }
+    return null;
+  }
+
+  String? _validateRemainingMonths(String? value) {
+    if (value == null || value.isEmpty) return 'Please enter Remaining Months';
+    final months = int.tryParse(value);
+    if (months == null) return 'Please enter a valid number';
+    if (months < 1) return 'Remaining Months must be at least 1';
+    if (months > maxRemainingMonths) {
+      return 'Remaining Months cannot exceed $maxRemainingMonths';
     }
     return null;
   }
@@ -210,10 +237,13 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
       userId: userId,
       type: _selectedDebtType,
       name: _selectedDebtType == 'Other' ? _nameController.text : _selectedDebtType,
-      totalAmount: double.parse(_totalAmountController.text),
-      monthlyPayment: double.parse(_monthlyPaymentController.text),
-      interestRate: double.parse(_interestRateController.text),
-      remainingMonths: int.parse(_remainingMonthsController.text),
+      totalAmount: MoneyFormat.parseOrZero(_totalAmountController.text),
+      monthlyPayment: MoneyFormat.parseOrZero(_monthlyPaymentController.text),
+      interestRate: double.parse(_interestRateController.text)
+          .clamp(0, maxInterestRate)
+          .toDouble(),
+      remainingMonths: int.parse(_remainingMonthsController.text)
+          .clamp(1, maxRemainingMonths),
     );
 
     try {
@@ -269,7 +299,23 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     _selectedDebtType = debtTypes[0];
     showDialog(
       context: context,
-      builder: (context) => _buildDebtDialog(isEdit: false),
+      barrierDismissible: true,
+      builder: (_) => _DebtEntryDialog(
+        isEdit: false,
+        selectedDebtType: _selectedDebtType,
+        debtTypes: debtTypes,
+        formKey: _formKey,
+        nameController: _nameController,
+        totalAmountController: _totalAmountController,
+        monthlyPaymentController: _monthlyPaymentController,
+        interestRateController: _interestRateController,
+        remainingMonthsController: _remainingMonthsController,
+        validateNumber: _validateNumber,
+        validateInterestRate: _validateInterestRate,
+        validateRemainingMonths: _validateRemainingMonths,
+        onTypeChanged: (value) => _selectedDebtType = value,
+        onSave: () => _saveDebt(isEdit: false),
+      ),
     );
   }
 
@@ -277,92 +323,32 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     final debt = _debts[index];
     _selectedDebtType = debt.type;
     _nameController.text = debt.type == 'Other' ? debt.name : '';
-    _totalAmountController.text = debt.totalAmount.toString();
-    _monthlyPaymentController.text = debt.monthlyPayment.toString();
+    _totalAmountController.text = MoneyFormat.display(debt.totalAmount);
+    _monthlyPaymentController.text = MoneyFormat.display(debt.monthlyPayment);
     _interestRateController.text = debt.interestRate.toString();
     _remainingMonthsController.text = debt.remainingMonths.toString();
     showDialog(
       context: context,
-      builder: (context) => _buildDebtDialog(isEdit: true, index: index),
+      barrierDismissible: true,
+      builder: (_) => _DebtEntryDialog(
+        isEdit: true,
+        selectedDebtType: _selectedDebtType,
+        debtTypes: debtTypes,
+        formKey: _formKey,
+        nameController: _nameController,
+        totalAmountController: _totalAmountController,
+        monthlyPaymentController: _monthlyPaymentController,
+        interestRateController: _interestRateController,
+        remainingMonthsController: _remainingMonthsController,
+        validateNumber: _validateNumber,
+        validateInterestRate: _validateInterestRate,
+        validateRemainingMonths: _validateRemainingMonths,
+        onTypeChanged: (value) => _selectedDebtType = value,
+        onSave: () => _saveDebt(isEdit: true, index: index),
+      ),
     );
   }
 
-  Widget _buildDebtDialog({required bool isEdit, int? index}) {
-    return AlertDialog(
-      title: Text(isEdit ? 'Edit Debt' : 'Add New Debt'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedDebtType,
-                decoration: const InputDecoration(labelText: 'Debt Type'),
-                items: debtTypes.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedDebtType = value);
-                  }
-                },
-              ),
-              if (_selectedDebtType == 'Other')
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Debt Name'),
-                  validator: (value) => value!.isEmpty ? 'Please enter debt name' : null,
-                ),
-              TextFormField(
-                controller: _totalAmountController,
-                decoration: const InputDecoration(labelText: 'Total Amount (RM)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) => _validateNumber(value, "Total Amount"),
-              ),
-              TextFormField(
-                controller: _monthlyPaymentController,
-                decoration: const InputDecoration(labelText: 'Monthly Payment (RM)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) => _validateNumber(value, "Monthly Payment"),
-              ),
-              TextFormField(
-                controller: _interestRateController,
-                decoration: const InputDecoration(labelText: 'Interest Rate (%)'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                ],
-                validator: (value) => _validateNumber(value, "Interest Rate"),
-              ),
-              TextFormField(
-                controller: _remainingMonthsController,
-                decoration: const InputDecoration(labelText: 'Remaining Months'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) => _validateNumber(value, "Remaining Months"),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () => _saveDebt(isEdit: isEdit, index: index),
-          child: Text(isEdit ? 'Update' : 'Add'),
-        ),
-      ],
-    );
-  }
 
   void _clearControllers() {
     _nameController.clear();
@@ -439,6 +425,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('Debt Management'),
         actions: [
@@ -526,9 +513,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
           ),
         ],
       ),
-      // ============================================================
-      // 底部导航栏
-      // ============================================================
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
@@ -555,5 +539,248 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
         onTap: _onTabTapped,
       ),
     );
+  }
+}
+
+class _DebtEntryDialog extends StatefulWidget {
+  const _DebtEntryDialog({
+    required this.isEdit,
+    required this.selectedDebtType,
+    required this.debtTypes,
+    required this.formKey,
+    required this.nameController,
+    required this.totalAmountController,
+    required this.monthlyPaymentController,
+    required this.interestRateController,
+    required this.remainingMonthsController,
+    required this.validateNumber,
+    required this.validateInterestRate,
+    required this.validateRemainingMonths,
+    required this.onTypeChanged,
+    required this.onSave,
+  });
+
+  final bool isEdit;
+  final String selectedDebtType;
+  final List<String> debtTypes;
+  final GlobalKey<FormState> formKey;
+  final TextEditingController nameController;
+  final TextEditingController totalAmountController;
+  final TextEditingController monthlyPaymentController;
+  final TextEditingController interestRateController;
+  final TextEditingController remainingMonthsController;
+  final String? Function(String? value, String fieldName) validateNumber;
+  final FormFieldValidator<String> validateInterestRate;
+  final FormFieldValidator<String> validateRemainingMonths;
+  final ValueChanged<String> onTypeChanged;
+  final VoidCallback onSave;
+
+  @override
+  State<_DebtEntryDialog> createState() => _DebtEntryDialogState();
+}
+
+class _DebtEntryDialogState extends State<_DebtEntryDialog> {
+  late String _selectedDebtType;
+
+  static const _fieldDecoration = InputDecoration(
+    border: OutlineInputBorder(),
+    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDebtType = widget.selectedDebtType;
+  }
+
+  Widget _labeledField({required String label, required Widget field}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          field,
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    final scrollPadding = EdgeInsets.only(bottom: keyboardInset + 88);
+
+    return KeyboardSafeDialog(
+      overlayKeyboard: true,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.isEdit ? 'Edit Debt' : 'Add New Debt',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Close',
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + keyboardInset),
+              child: Form(
+                key: widget.formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _labeledField(
+                      label: 'Debt Type',
+                      field: DropdownButtonFormField<String>(
+                        initialValue: _selectedDebtType,
+                        isExpanded: true,
+                        decoration: _fieldDecoration,
+                        items: widget.debtTypes.map((type) {
+                          return DropdownMenuItem(
+                            value: type,
+                            child: Text(type),
+                          );
+                        }).toList(),
+                        onTap: () =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() => _selectedDebtType = value);
+                          widget.onTypeChanged(value);
+                        },
+                      ),
+                    ),
+                    if (_selectedDebtType == 'Other')
+                      _labeledField(
+                        label: 'Debt Name',
+                        field: TextFormField(
+                          controller: widget.nameController,
+                          decoration: _fieldDecoration,
+                          scrollPadding: scrollPadding,
+                          validator: (value) => value!.isEmpty
+                              ? 'Please enter debt name'
+                              : null,
+                        ),
+                      ),
+                    _labeledField(
+                      label: 'Total Amount (RM)',
+                      field: MoneyFormField(
+                        controller: widget.totalAmountController,
+                        decoration: _fieldDecoration,
+                        scrollPadding: scrollPadding,
+                        validator: (value) =>
+                            widget.validateNumber(value, 'Total Amount'),
+                      ),
+                    ),
+                    _labeledField(
+                      label: 'Monthly Payment (RM)',
+                      field: MoneyFormField(
+                        controller: widget.monthlyPaymentController,
+                        decoration: _fieldDecoration,
+                        scrollPadding: scrollPadding,
+                        validator: (value) =>
+                            widget.validateNumber(value, 'Monthly Payment'),
+                      ),
+                    ),
+                    _labeledField(
+                      label: 'Interest Rate (%)',
+                      field: TextFormField(
+                        controller: widget.interestRateController,
+                        decoration: _fieldDecoration,
+                        scrollPadding: scrollPadding,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d{0,2}(\.\d{0,2})?$'),
+                          ),
+                          _MaxValueFormatter(
+                            _DebtManagementScreenState.maxInterestRate,
+                          ),
+                        ],
+                        validator: widget.validateInterestRate,
+                      ),
+                    ),
+                    _labeledField(
+                      label: 'Remaining Months',
+                      field: TextFormField(
+                        controller: widget.remainingMonthsController,
+                        decoration: _fieldDecoration,
+                        scrollPadding: scrollPadding,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(3),
+                          _MaxValueFormatter(
+                            _DebtManagementScreenState.maxRemainingMonths,
+                            integer: true,
+                          ),
+                        ],
+                        validator: widget.validateRemainingMonths,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: widget.onSave,
+                          child: Text(widget.isEdit ? 'Update' : 'Add'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MaxValueFormatter extends TextInputFormatter {
+  const _MaxValueFormatter(this.max, {this.integer = false});
+
+  final num max;
+  final bool integer;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty || newValue.text == '.') return newValue;
+    final parsed = integer
+        ? int.tryParse(newValue.text)
+        : double.tryParse(newValue.text);
+    if (parsed == null) return oldValue;
+    if (parsed > max) return oldValue;
+    return newValue;
   }
 }

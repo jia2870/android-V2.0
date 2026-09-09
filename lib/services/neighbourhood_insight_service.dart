@@ -1,10 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/property_model.dart';
-import 'supabase_service.dart';
 
-/// 通用的"州级 fallback"结果包装：记录数值本身、是否用了 fallback、退回自哪个州
 class _StateResult<T> {
   final T? value;
   final bool isFallback;
@@ -14,21 +11,18 @@ class _StateResult<T> {
   static _StateResult<T> empty<T>() => _StateResult<T>(null, isFallback: false);
 }
 
-/// 单一房产的 AI Neighbourhood Insight 结果模型
 class NeighbourhoodInsight {
-  final double? populationPercent; // 州人口占全国百分比
-  final double? crimePercent; // (Assault+Property) 占全国犯罪百分比
-  final double? waterPercent; // (Domestic+Non-domestic) 占全国用水百分比
-  final double? incomeMean; // 州平均收入 (RM)
-  final String? incomeLevel; // Low / Medium / High
-  final String? expenditureLevel; // Low / Medium / High (三分位)
-  final int? schoolsTotal; // Primary + Secondary + Tertiary 学校数量
-  final int? hospitalBedsTotal; // MOH + Non-MOH + Special 病床数量
+  final double? populationPercent;
+  final double? crimePercent;
+  final double? waterPercent;
+  final double? incomeMean;
+  final String? incomeLevel;
+  final String? expenditureLevel;
+  final int? schoolsTotal;
+  final int? hospitalBedsTotal;
 
-  /// 哪些指标是"退回邻近州"得到的数据，例如 {'crime', 'water'}
   final Set<String> fallbackFields;
 
-  /// 退回用的是哪个州（一次请求里通常只会退回同一个州）
   final String? fallbackState;
 
   const NeighbourhoodInsight({
@@ -48,7 +42,6 @@ class NeighbourhoodInsight {
 
   bool get hasFallbackData => fallbackFields.isNotEmpty && fallbackState != null;
 
-  /// UI 用来在底部显示的脚注文字，没有 fallback 时返回 null
   String? get fallbackNote {
     if (!hasFallbackData) return null;
     return 'Data marked with * comes from the neighboring $fallbackState and is for reference only.';
@@ -57,8 +50,9 @@ class NeighbourhoodInsight {
   String _withMark(String text, String field) =>
       fallbackFields.contains(field) ? '$text *' : text;
 
-  String get populationDisplay =>
-      populationPercent != null ? '${populationPercent!.toStringAsFixed(1)}% \n of Malaysia' : 'N/A';
+  String get populationDisplay => populationPercent != null
+      ? _withMark('${populationPercent!.toStringAsFixed(1)}% \n of Malaysia', 'population')
+      : 'N/A';
 
   String get crimeDisplay => crimePercent != null
       ? _withMark('${crimePercent!.toStringAsFixed(1)}% \n of Malaysia', 'crime')
@@ -118,16 +112,12 @@ class NeighbourhoodInsight {
   }
 }
 
-/// 负责调用 data.gov.my Open API 和 Supabase 数据
 class NeighbourhoodInsightService {
   static const String _baseUrl = 'https://api.data.gov.my/data-catalogue';
   static const int _fetchLimit = 20000;
   static final Map<String, List<Map<String, dynamic>>> _cache = {};
   static const bool debugLogging = true;
 
-  /// 联邦直辖区历史上是从哪个州划出去的 —— 数据集里如果找不到该州（尤其是
-  /// Putrajaya / W.P. Kuala Lumpur / Labuan 这几个联邦直辖区），就退回母体州。
-  /// key 用小写做匹配，value 是要展示 & 用来查询的正式州名。
   static const Map<String, String> _stateFallbackMap = {
     'putrajaya': 'Selangor',
     'w.p. putrajaya': 'Selangor',
@@ -140,8 +130,6 @@ class NeighbourhoodInsightService {
     'wilayah persekutuan labuan': 'Sabah',
   };
 
-  final SupabaseClient _supabaseClient = SupabaseService().client;
-
   String? _fallbackStateFor(String state) {
     final key = state.trim().toLowerCase();
     return _stateFallbackMap[key];
@@ -149,13 +137,10 @@ class NeighbourhoodInsightService {
 
   void _log(String message) {
     if (debugLogging) {
-      // ignore: avoid_print
       print('[NeighbourhoodInsight] $message');
     }
   }
 
-  /// 通用 fallback 包装：[compute] 是一个"给定州名，算出结果"的同步函数。
-  /// 先用目标州算，算不出（null）就退回到 [_stateFallbackMap] 里配置的母体州再算一次。
   _StateResult<T> _withFallback<T>(String state, T? Function(String s) compute) {
     final direct = compute(state);
     if (direct != null) {
@@ -165,7 +150,7 @@ class NeighbourhoodInsightService {
     final fallback = _fallbackStateFor(state);
     if (fallback == null) return _StateResult.empty<T>();
 
-    _log('⚠️ "$state" 没有数据，尝试退回邻近/母体州 "$fallback"');
+    _log('"$state" has no data; trying fallback state "$fallback"');
     final fallbackValue = compute(fallback);
     if (fallbackValue == null) return _StateResult.empty<T>();
 
@@ -180,11 +165,10 @@ class NeighbourhoodInsightService {
     _log('property.listingId=${property.listingId}, state="$state", district="$district"');
 
     if (state == null || state.trim().isEmpty) {
-      _log('⚠️ property.state 是 null 或空字符串，Population/Crime/Water/Income 都将是 N/A。');
+      _log('property.state is null or empty; Population/Crime/Water/Income will be N/A.');
     }
 
-    // Population 从 Supabase 获取
-    final populationFuture = _fetchPopulationPercentFromSupabase(state);
+    final populationFuture = _fetchPopulationPercent(state);
     final crimeFuture = _fetchCrimePercent(state);
     final waterFuture = _fetchWaterPercent(state);
     final incomeFuture = _fetchIncome(state);
@@ -200,7 +184,6 @@ class NeighbourhoodInsightService {
     final schools = await schoolsFuture;
     final hospitalBeds = await hospitalBedsFuture;
 
-    // 收集本次用到 fallback 的字段名 + 退回的州（正常情况下同一次请求只会退回同一个州）
     final fallbackFields = <String>{};
     String? fallbackState;
     void track(String field, _StateResult r) {
@@ -210,6 +193,7 @@ class NeighbourhoodInsightService {
       }
     }
 
+    track('population', population);
     track('crime', crime);
     track('water', water);
     track('income', income);
@@ -220,7 +204,7 @@ class NeighbourhoodInsightService {
     final incomeValue = income.value;
 
     final insight = NeighbourhoodInsight(
-      populationPercent: population,
+      populationPercent: population.value,
       crimePercent: crime.value,
       waterPercent: water.value,
       incomeMean: incomeValue?['mean'] as double?,
@@ -241,166 +225,81 @@ class NeighbourhoodInsightService {
     return insight;
   }
 
-  // ============================================================
-  // Population：从 Supabase 获取数据，计算州人口占全国百分比
-  // 算法：State Population ÷ Malaysia Total Population × 100
-  // ============================================================
-  Future<double?> _fetchPopulationPercentFromSupabase(String? state) async {
+  Future<_StateResult<double>> _fetchPopulationPercent(String? state) async {
     if (state == null || state.trim().isEmpty) {
-      _log('Population: state is null or empty, returning null');
-      return null;
+      return _StateResult.empty<double>();
     }
 
     try {
-      _log('Population: fetching from Supabase for state: "$state"');
+      final stateData = await _fetchDataset('population_state');
+      final nationalData = await _fetchDataset('population_malaysia');
 
-      // 获取该州的最新人口数据（筛选 overall/overall）
-      final stateResponse = await _supabaseClient
-          .from('population_data')
-          .select('population, date')
-          .eq('state', state)
-          .eq('sex', 'both')
-          .eq('age', 'overall')
-          .eq('ethnicity', 'overall')
-          .order('date', ascending: false)
-          .limit(1);
+      bool isStateOverall(Map<String, dynamic> r) =>
+          r['age']?.toString() == 'overall_age' &&
+          r['sex']?.toString() == 'overall_sex' &&
+          r['ethnicity']?.toString() == 'overall_ethnicity';
 
-      _log('Population: stateResponse length: ${stateResponse.length}');
-      if (stateResponse.isNotEmpty) {
-        _log('Population: state data: ${stateResponse.first}');
-      }
+      bool isNationalOverall(Map<String, dynamic> r) =>
+          r['age']?.toString() == 'overall' &&
+          r['sex']?.toString() == 'both' &&
+          r['ethnicity']?.toString() == 'overall';
 
-      double? statePop;
-      double? malaysiaPop;
-
-      if (stateResponse.isNotEmpty) {
-        statePop = (stateResponse.first['population'] as num?)?.toDouble();
-        _log('Population: statePop from Supabase: $statePop');
-      }
-
-      // 如果 Supabase 没有数据，尝试使用硬编码备用数据
-      if (statePop == null || statePop <= 0) {
-        _log('Population: No data in Supabase, trying hardcoded fallback...');
-        final hardcodedResult = _getHardcodedPopulation(state);
-        if (hardcodedResult != null) {
-          return hardcodedResult;
+      double? populationAtYear(List<Map<String, dynamic>> rows, int year) {
+        for (final r in rows) {
+          final date = DateTime.tryParse(r['date']?.toString() ?? '');
+          if (date != null && date.year == year) {
+            return (r['population'] as num?)?.toDouble();
+          }
         }
         return null;
       }
 
-      // 获取全国总人口（Malaysia）
-      final malaysiaResponse = await _supabaseClient
-          .from('population_data')
-          .select('population, date')
-          .eq('state', 'Malaysia')
-          .eq('sex', 'both')
-          .eq('age', 'overall')
-          .eq('ethnicity', 'overall')
-          .order('date', ascending: false)
-          .limit(1);
-
-      _log('Population: malaysiaResponse length: ${malaysiaResponse.length}');
-      if (malaysiaResponse.isNotEmpty) {
-        _log('Population: malaysia data: ${malaysiaResponse.first}');
-      }
-
-      if (malaysiaResponse.isNotEmpty) {
-        malaysiaPop = (malaysiaResponse.first['population'] as num?)?.toDouble();
-        _log('Population: malaysiaPop from Supabase: $malaysiaPop');
-      }
-
-      // 如果 Malaysia 数据不存在，计算所有非 Malaysia 州的人口总和
-      if (malaysiaPop == null || malaysiaPop <= 0) {
-        _log('Population: Malaysia not found, calculating sum of all states...');
-        final allStatesResponse = await _supabaseClient
-            .from('population_data')
-            .select('population')
-            .eq('sex', 'both')
-            .eq('age', 'overall')
-            .eq('ethnicity', 'overall')
-            .neq('state', 'Malaysia');
-
-        double total = 0;
-        for (final row in allStatesResponse) {
-          final pop = (row['population'] as num?)?.toDouble() ?? 0;
-          total += pop;
+      int? latestYear(List<Map<String, dynamic>> rows) {
+        int? year;
+        for (final r in rows) {
+          final date = DateTime.tryParse(r['date']?.toString() ?? '');
+          if (date != null && (year == null || date.year > year)) {
+            year = date.year;
+          }
         }
-        malaysiaPop = total;
-        _log('Population: calculated malaysiaPop from sum: $malaysiaPop');
+        return year;
       }
 
-      if (malaysiaPop == null || malaysiaPop <= 0) {
-        _log('Population: malaysiaPop is null or <= 0');
-        return null;
+      final nationalRows = nationalData.where(isNationalOverall).toList();
+      final nationalLatest = latestYear(nationalRows);
+      if (nationalLatest == null) return _StateResult.empty<double>();
+
+      double? computeForState(String s) {
+        final rows = stateData
+            .where((r) => isStateOverall(r) && _matchesState(r['state'], s))
+            .toList();
+        final year = latestYear(rows);
+        if (year == null) return null;
+        final statePop = populationAtYear(rows, year);
+        if (statePop == null || statePop <= 0) return null;
+
+        final malaysiaPop = populationAtYear(nationalRows, year) ??
+            populationAtYear(nationalRows, nationalLatest);
+        if (malaysiaPop == null || malaysiaPop <= 0) return null;
+
+        final percent = statePop / malaysiaPop * 100;
+        _log(
+          'Population: $s $statePop / $malaysiaPop '
+          '(stateYear=$year) = ${percent.toStringAsFixed(2)}%',
+        );
+        if (percent > 40) {
+          _log('Population: WARNING unusually high share for "$s": $percent%');
+        }
+        return percent;
       }
 
-      final percent = statePop! / malaysiaPop * 100;
-      _log('Population: $statePop / $malaysiaPop * 100 = ${percent.toStringAsFixed(2)}%');
-      return percent;
+      return _withFallback<double>(state, computeForState);
     } catch (e) {
       _log('Population -> EXCEPTION: $e');
-      // 尝试使用硬编码数据作为最后手段
-      final hardcodedResult = _getHardcodedPopulation(state);
-      if (hardcodedResult != null) {
-        _log('Population: Using hardcoded fallback after exception');
-        return hardcodedResult;
-      }
-      return null;
+      return _StateResult.empty<double>();
     }
   }
 
-  // ============================================================
-  // 硬编码备用数据（从 CSV 提取的最新数据 - 2025年）
-  // ============================================================
-  static final Map<String, double> _hardcodedPopulation = {
-    'Johor': 4205.9,
-    'Kedah': 4205.9,
-    'Kelantan': 4107.2,
-    'Melaka': 4028.3,
-    'Negeri Sembilan': 3761.2,
-    'Pahang': 3749.4,
-    'Penang': 3697.0,
-    'Perak': 3651.8,
-    'Perlis': 3610.3,
-    'Selangor': 3559.8,
-    'Terengganu': 3474.4,
-    'Sabah': 3450.4,
-    'Sarawak': 3410.5,
-    'Kuala Lumpur': 3362.9,
-    'Labuan': 3309.4,
-    'Putrajaya': 3252.3,
-    'Malaysia': 4205.9,
-  };
-
-  double? _getHardcodedPopulation(String state) {
-    final normalized = state.trim().toLowerCase();
-
-    // 精确匹配.
-    for (final key in _hardcodedPopulation.keys) {
-      if (key.toLowerCase() == normalized) {
-        final statePop = _hardcodedPopulation[key]!;
-        final malaysiaPop = _hardcodedPopulation['Malaysia']!;
-        _log('Hardcoded: $key -> $statePop / $malaysiaPop = ${(statePop / malaysiaPop * 100).toStringAsFixed(2)}%');
-        return statePop / malaysiaPop * 100;
-      }
-    }
-
-    // 模糊匹配
-    for (final key in _hardcodedPopulation.keys) {
-      if (normalized.contains(key.toLowerCase()) || key.toLowerCase().contains(normalized)) {
-        final statePop = _hardcodedPopulation[key]!;
-        final malaysiaPop = _hardcodedPopulation['Malaysia']!;
-        _log('Hardcoded (fuzzy): $key -> $statePop / $malaysiaPop = ${(statePop / malaysiaPop * 100).toStringAsFixed(2)}%');
-        return statePop / malaysiaPop * 100;
-      }
-    }
-
-    return null;
-  }
-
-  // ============================================================
-  // Crime：州级汇总行用 district == 'All Districts'
-  // ============================================================
   Future<_StateResult<double>> _fetchCrimePercent(String? state) async {
     if (state == null) return _StateResult.empty<double>();
     try {
@@ -437,9 +336,6 @@ class NeighbourhoodInsightService {
     }
   }
 
-  // ============================================================
-  // Water
-  // ============================================================
   Future<_StateResult<double>> _fetchWaterPercent(String? state) async {
     if (state == null) return _StateResult.empty<double>();
     try {
@@ -472,9 +368,6 @@ class NeighbourhoodInsightService {
     }
   }
 
-  // ============================================================
-  // Income
-  // ============================================================
   Future<_StateResult<Map<String, dynamic>>> _fetchIncome(String? state) async {
     if (state == null) return _StateResult.empty<Map<String, dynamic>>();
     try {
@@ -511,9 +404,6 @@ class NeighbourhoodInsightService {
     }
   }
 
-  // ============================================================
-  // Expenditure
-  // ============================================================
   Future<_StateResult<String>> _fetchExpenditureLevel(String? state, String? district) async {
     try {
       final data = await _fetchDataset('hies_district');
@@ -556,7 +446,6 @@ class NeighbourhoodInsightService {
       bool isFallback = false;
       String? fallbackState;
 
-      // 1) 精确匹配房产的 district
       if (district != null) {
         for (final entry in latestByDistrict.entries) {
           if (_matchesDistrict(entry.key, district)) {
@@ -566,7 +455,6 @@ class NeighbourhoodInsightService {
         }
       }
 
-      // 2) 找不到 district 就退回该 state 的所有 district 平均值
       if (target == null && state != null) {
         final result = _withFallback<double>(state, stateAverage);
         target = result.value;
@@ -589,9 +477,6 @@ class NeighbourhoodInsightService {
     }
   }
 
-  // ============================================================
-  // Schools
-  // ============================================================
   Future<_StateResult<int>> _fetchSchoolsTotal(String? state, String? district) async {
     try {
       final data = await _fetchDataset('schools_district');
@@ -637,9 +522,6 @@ class NeighbourhoodInsightService {
     }
   }
 
-  // ============================================================
-  // Hospital Beds
-  // ============================================================
   Future<_StateResult<int>> _fetchHospitalBedsTotal(String? state, String? district) async {
     try {
       final data = await _fetchDataset('hospital_beds');
@@ -674,9 +556,6 @@ class NeighbourhoodInsightService {
     }
   }
 
-  // ============================================================
-  // 底层工具方法
-  // ============================================================
 
   Future<List<Map<String, dynamic>>> _fetchDataset(String id) async {
     if (_cache.containsKey(id)) {
@@ -740,8 +619,14 @@ class NeighbourhoodInsightService {
   bool _matchesState(dynamic recordState, String? targetState) {
     if (targetState == null) return false;
     final a = recordState?.toString().trim().toLowerCase() ?? '';
-    final b = targetState.trim().toLowerCase();
+    var b = targetState.trim().toLowerCase();
     if (a.isEmpty || b.isEmpty) return false;
+
+    if (b == 'penang') b = 'pulau pinang';
+    if (b == 'kl' || b == 'wp kuala lumpur') b = 'w.p. kuala lumpur';
+    if (b == 'wp putrajaya' || b == 'putrajaya') b = 'w.p. putrajaya';
+    if (b == 'wp labuan' || b == 'labuan') b = 'w.p. labuan';
+
     if (a == b) return true;
     return a.contains(b) || b.contains(a);
   }

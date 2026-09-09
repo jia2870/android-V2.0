@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../utils/password_rules.dart';
+import '../widgets/keyboard_safe.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
-import 'dashboard_screen.dart';
 import 'saved_properties_screen.dart';
 import 'profile_screen.dart';
 import 'ai_advisor_screen.dart';
@@ -28,8 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
-  // 底部导航索引
-  static const int _currentIndex = 0; // Home
+  static const int _currentIndex = 0;
 
   final List<String> states = [
     'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan',
@@ -45,17 +45,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return "Password is required";
-    if (value.length < 8) return "Password must be at least 8 characters";
-    if (!value.contains(RegExp(r'[A-Z]'))) return "Must contain at least 1 uppercase letter";
-    if (!value.contains(RegExp(r'[a-z]'))) return "Must contain at least 1 lowercase letter";
-    if (!value.contains(RegExp(r'[0-9]'))) return "Must contain at least 1 number";
-    if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
-      return "Must contain at least 1 special character";
-    }
-    return null;
-  }
+  String? _validatePassword(String? value) => PasswordRules.validate(value);
 
   String? _validatePhone(String? value) {
     if (value == null || value.isEmpty) return "Phone number is required";
@@ -108,28 +98,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // ============================================================
-  // 底部导航切换
-  // ============================================================
   void _onTabTapped(int index) {
     if (index == 0) {
-      // Home
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
     } else if (index == 1) {
-      // AI
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please login first')),
       );
     } else if (index == 2) {
-      // Saved
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please login first')),
       );
     } else if (index == 3) {
-      // Profile
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -143,12 +126,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Register")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
+      body: KeyboardSafeBody(
+        centerWhenShort: true,
         child: Form(
           key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
+          child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.app_registration, size: 60, color: Colors.blue),
@@ -231,6 +213,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: _selectedState,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: "Select State/Region",
                     border: OutlineInputBorder(),
@@ -239,24 +222,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   items: states.map((state) {
                     return DropdownMenuItem(
                       value: state,
-                      child: Text(state),
+                      child: Text(state, overflow: TextOverflow.ellipsis),
                     );
                   }).toList(),
                   onChanged: (value) {
                     setState(() => _selectedState = value!);
                   },
                   validator: (value) => value == null ? "Please select a state" : null,
-                ),
-                const SizedBox(height: 16),
-                CheckboxListTile(
-                  value: _wantPhoto,
-                  onChanged: (value) {
-                    setState(() => _wantPhoto = value!);
-                  },
-                  title: const Text("Set profile photo (avatar)"),
-                  subtitle: const Text("A default avatar will be used"),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
                 ),
                 const SizedBox(height: 30),
                 SizedBox(
@@ -277,13 +249,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: const Text("Already have an account? Login"),
                 ),
               ],
-            ),
           ),
         ),
       ),
-      // ============================================
-      // 底部导航栏
-      // ============================================
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,

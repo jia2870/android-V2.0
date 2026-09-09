@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
+import '../utils/money_format.dart';
 
 class FinancialProvider extends ChangeNotifier {
-  // Financial Data
   double monthlySalary = 0;
   double otherIncome = 0;
   double commitments = 0;
   double savings = 0;
   double downPayment = 0;
 
-  // Debt details
   List<Debt> debts = [];
 
-  // Asset details
   double totalSavings = 0;
   double downPaymentBudget = 0;
 
@@ -19,11 +17,9 @@ class FinancialProvider extends ChangeNotifier {
   double recommendedBudget = 0;
   String riskLevel = "Low";
 
-  // Preference Match
   double preferenceMatchScore = 0;
   String matchLevel = "Medium";
 
-  // Property Preferences
   String purpose = "Own Stay";
   String propertyType = "Apartment";
   String priceRange = "RM200k–300k";
@@ -31,9 +27,6 @@ class FinancialProvider extends ChangeNotifier {
   String preferredState = "Selangor";
   List<String> importantFactors = [];
 
-  // ============================================
-  // Public Methods
-  // ============================================
 
   void updateFinancialData({
     required double salary,
@@ -42,19 +35,16 @@ class FinancialProvider extends ChangeNotifier {
     required double savings,
     required double downPayment,
   }) {
-    this.monthlySalary = salary;
-    this.otherIncome = otherIncome;
-    this.commitments = commitments;
-    this.savings = savings;
-    this.downPayment = downPayment;
+    this.monthlySalary = MoneyFormat.clamp(salary);
+    this.otherIncome = MoneyFormat.clamp(otherIncome);
+    this.commitments = MoneyFormat.clampCalculated(commitments);
+    this.savings = MoneyFormat.clamp(savings);
+    this.downPayment = MoneyFormat.clamp(downPayment);
     _calculateAffordability();
     _calculatePreferenceMatch();
     notifyListeners();
   }
 
-  // ============================================
-  // Debt Management
-  // ============================================
 
   void addDebt(Debt debt) {
     debts.add(debt);
@@ -80,13 +70,23 @@ class FinancialProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void replaceDebts(
+    List<Debt> updatedDebts, {
+    bool recalculateCommitments = true,
+  }) {
+    debts = List<Debt>.of(updatedDebts);
+    if (recalculateCommitments) {
+      _recalculateCommitments();
+    }
+    _calculateAffordability();
+    _calculatePreferenceMatch();
+    notifyListeners();
+  }
+
   void _recalculateCommitments() {
     commitments = debts.fold(0, (sum, debt) => sum + debt.monthlyPayment);
   }
 
-  // ============================================
-  // Asset Management
-  // ============================================
 
   void updateSavings(double amount) {
     totalSavings = amount;
@@ -104,9 +104,6 @@ class FinancialProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============================================
-  // Property Preferences
-  // ============================================
 
   void updatePreferences({
     required String purpose,
@@ -126,9 +123,6 @@ class FinancialProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============================================
-  // Private Calculation Methods
-  // ============================================
 
   void _calculateAffordability() {
     double totalIncome = monthlySalary + otherIncome;
@@ -144,7 +138,9 @@ class FinancialProvider extends ChangeNotifier {
     affordabilityScore = score;
 
     double maxMonthlyPayment = (totalIncome * 0.55) - commitments;
-    recommendedBudget = maxMonthlyPayment * 12 * 30 * 0.75 + savings * 0.6;
+    recommendedBudget = MoneyFormat.clampCalculated(
+      maxMonthlyPayment * 12 * 30 * 0.75 + savings * 0.6,
+    );
 
     if (debtRatio < 0.3) {
       riskLevel = "Low";
@@ -164,19 +160,15 @@ class FinancialProvider extends ChangeNotifier {
 
     double score = 0;
 
-    // 1. 价格范围匹配（权重 40%）
     double priceScore = _getPriceRangeScore();
     score += priceScore * 0.4;
 
-    // 2. 卧室数匹配（权重 30%）
     double bedroomScore = _getBedroomScore();
     score += bedroomScore * 0.3;
 
-    // 3. 房产类型匹配（权重 20%）
     double typeScore = _getPropertyTypeScore();
     score += typeScore * 0.2;
 
-    // 4. 地区匹配（权重 10%）
     double stateScore = _getStateScore();
     score += stateScore * 0.1;
 
@@ -191,21 +183,25 @@ class FinancialProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================
-  // Helper Methods for Preference Match
-  // ============================================
 
   double _getPriceRangeScore() {
     if (priceRange.isEmpty) return 0.5;
 
-    final numbers = priceRange
+    final cleaned = priceRange
         .replaceAll('RM', '')
-        .replaceAll('k', '000')
-        .replaceAll('K', '000')
-        .replaceAll('+', '');
-    final parts = numbers.split('–');
+        .replaceAll('rm', '')
+        .replaceAll(',', '')
+        .trim();
+    final hasPlus = cleaned.contains('+');
+    final withoutPlus = cleaned.replaceAll('+', '');
 
-    if (parts.length == 2) {
+    final parts = withoutPlus
+        .split(RegExp(r'[–—-]'))
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (parts.length >= 2) {
       final minPrice = _parsePriceString(parts[0]);
       final maxPrice = _parsePriceString(parts[1]);
 
@@ -216,24 +212,37 @@ class FinancialProvider extends ChangeNotifier {
       } else {
         return 0.7;
       }
-    } else if (priceRange.contains('+')) {
-      final minPrice = _parsePriceString(priceRange.replaceAll('+', ''));
+    }
+
+    if (hasPlus || parts.length == 1) {
+      final minPrice = _parsePriceString(parts.isNotEmpty ? parts.first : withoutPlus);
       if (recommendedBudget >= minPrice) {
         return 1.0;
-      } else {
-        return 0.4;
       }
+      return 0.4;
     }
 
     return 0.5;
   }
 
   double _parsePriceString(String value) {
-    value = value.trim().replaceAll(',', '');
-    if (value.contains('M')) {
-      return double.parse(value.replaceAll('M', '')) * 1000000;
+    var text = value.trim().replaceAll(',', '').replaceAll('RM', '').replaceAll('rm', '');
+    if (text.isEmpty) return 0;
+
+    var multiplier = 1.0;
+    if (text.endsWith('M') || text.endsWith('m')) {
+      multiplier = 1000000;
+      text = text.substring(0, text.length - 1).trim();
+    } else if (text.endsWith('K') || text.endsWith('k')) {
+      multiplier = 1000;
+      text = text.substring(0, text.length - 1).trim();
+    } else if (text.contains('k') || text.contains('K')) {
+      text = text.replaceAll('k', '000').replaceAll('K', '000');
     }
-    return double.tryParse(value) ?? 0;
+
+    final parsed = double.tryParse(text);
+    if (parsed == null) return 0;
+    return parsed * multiplier;
   }
 
   double _getBedroomScore() {
@@ -298,9 +307,6 @@ class FinancialProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================
-  // Getter Properties
-  // ============================================
 
   double get totalMonthlyIncome => monthlySalary + otherIncome;
   double get debtToIncomeRatio => totalMonthlyIncome > 0 ? commitments / totalMonthlyIncome : 0;
@@ -309,7 +315,6 @@ class FinancialProvider extends ChangeNotifier {
   double get totalDebt => debts.fold(0, (sum, d) => sum + d.totalAmount);
   double get totalAssets => savings + downPayment;
 
-  // 获取匹配等级的颜色
   Color get matchColor {
     switch (matchLevel) {
       case 'High':
@@ -321,7 +326,6 @@ class FinancialProvider extends ChangeNotifier {
     }
   }
 
-  // 获取匹配等级的图标
   IconData get matchIcon {
     switch (matchLevel) {
       case 'High':
@@ -333,9 +337,6 @@ class FinancialProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================
-  // Clear Data
-  // ============================================
 
   void clearAllData() {
     monthlySalary = 0;
@@ -360,9 +361,6 @@ class FinancialProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ============================================
-  // Recalculate Method (for external calls)
-  // ============================================
 
   void recalculate() {
     _calculateAffordability();
@@ -371,9 +369,6 @@ class FinancialProvider extends ChangeNotifier {
   }
 }
 
-// ============================================
-// Debt Model
-// ============================================
 
 class Debt {
   final String type;
