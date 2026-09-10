@@ -291,7 +291,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       return AdaptiveNavScaffold(
         currentIndex: AppNavIndex.saved,
         onTap: _onTabTapped,
-        appBar: AppBar(title: const Text('Saved Properties')),
+        appBar: AppBar(title: const Text('Favourite Properties')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -320,7 +320,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       currentIndex: AppNavIndex.saved,
       onTap: _onTabTapped,
       appBar: AppBar(
-        title: const Text('Saved Properties'),
+        title: const Text('Favourite Properties'),
         actions: [
           if (_properties.isNotEmpty)
             Container(

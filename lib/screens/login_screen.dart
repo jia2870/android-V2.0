@@ -248,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.search), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Saved"),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favourites"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
         onTap: onTabTapped,
