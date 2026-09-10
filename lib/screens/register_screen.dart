@@ -268,7 +268,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
-            label: "Saved",
+            label: "Favourites",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
