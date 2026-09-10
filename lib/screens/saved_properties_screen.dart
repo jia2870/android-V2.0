@@ -5,8 +5,6 @@ import '../services/saved_property_service.dart';
 import '../services/property_service.dart';
 import '../providers/auth_provider.dart';
 import '../utils/device_layout.dart';
-import '../utils/money_format.dart';
-import '../widgets/money_form_field.dart';
 import '../widgets/adaptive_nav_scaffold.dart';
 import '../widgets/property_filter_dialog.dart';
 import 'property_detail_screen.dart';
@@ -24,13 +22,10 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
   final SavedPropertyService _savedService = SavedPropertyService();
   final PropertyService _propertyService = PropertyService();
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _minPriceController = TextEditingController();
-  final TextEditingController _maxPriceController = TextEditingController();
 
   List<PropertyModel> _properties = [];
   List<PropertyModel> _filteredProperties = [];
   bool _isLoading = true;
-  bool _showFilters = false;
   String? _errorMessage;
 
   String? _selectedState;
@@ -52,6 +47,16 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
   ];
   final List<String> _tenureTypes = const ['Freehold', 'Leasehold'];
   final List<int> _bedroomOptions = const [1, 2, 3, 4, 5];
+
+  bool get _hasActiveFilters =>
+      _selectedState != null ||
+      _selectedDistrict != null ||
+      _selectedPropertyType != null ||
+      _selectedTenure != null ||
+      _selectedBedrooms != null ||
+      _minPrice != null ||
+      _maxPrice != null ||
+      _searchController.text.trim().isNotEmpty;
 
   @override
   void initState() {
@@ -184,8 +189,6 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       _selectedBedrooms = null;
       _districts = [];
       _searchController.clear();
-      _minPriceController.clear();
-      _maxPriceController.clear();
     });
     _searchProperties();
   }
@@ -225,28 +228,8 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       _minPrice = selection.minPrice;
       _maxPrice = selection.maxPrice;
       _districts = selection.districts;
-      _minPriceController.text = selection.minPrice == null
-          ? ''
-          : MoneyFormat.toField(selection.minPrice!.toDouble());
-      _maxPriceController.text = selection.maxPrice == null
-          ? ''
-          : MoneyFormat.toField(selection.maxPrice!.toDouble());
-      _showFilters = false;
     });
     _searchProperties();
-  }
-
-  Future<void> _loadDistricts(String state) async {
-    if (state.isEmpty) {
-      if (mounted) setState(() => _districts = []);
-      return;
-    }
-    try {
-      _districts = await _propertyService.getDistrictsByState(state);
-      if (mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Load districts error: $e');
-    }
   }
 
   Future<void> _removeSaved(String listingId) async {
@@ -341,18 +324,10 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
           const SizedBox(width: 8),
           IconButton(
             icon: Icon(
-              wideLandscape
-                  ? Icons.tune_rounded
-                  : (_showFilters ? Icons.tune_rounded : Icons.tune_outlined),
+              _hasActiveFilters ? Icons.tune_rounded : Icons.tune_outlined,
             ),
-            onPressed: () {
-              if (wideLandscape) {
-                _showFilterDialog();
-              } else {
-                setState(() => _showFilters = !_showFilters);
-              }
-            },
-            tooltip: wideLandscape ? 'Open filters' : 'Show or hide filters',
+            onPressed: _showFilterDialog,
+            tooltip: 'Open filters',
           ),
         ],
       ),
@@ -398,8 +373,6 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
               ),
             ),
           ),
-          if (_showFilters && !wideLandscape)
-            SliverToBoxAdapter(child: _buildFilters()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -428,7 +401,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                       ],
                     ),
                   ),
-                  if (_showFilters)
+                  if (_hasActiveFilters)
                     TextButton(
                       onPressed: _clearFilters,
                       child: const Text('Clear All'),
@@ -557,159 +530,6 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
         );
       },
     );
-  }
-
-  Widget _buildFilters() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final panelColor = isDark ? theme.cardColor : Colors.grey[50];
-    final borderColor = isDark ? theme.dividerColor : Colors.grey[200]!;
-
-    final panel = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: panelColor,
-        border: Border(bottom: BorderSide(color: borderColor)),
-      ),
-      child: Column(
-        children: [
-          DropdownButtonFormField<String>(
-            value: _selectedState,
-            decoration: const InputDecoration(
-              labelText: 'State',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('All States')),
-              ..._states.map((s) => DropdownMenuItem(value: s, child: Text(s))),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _selectedState = value;
-                _selectedDistrict = null;
-              });
-              if (value != null) {
-                _loadDistricts(value);
-              } else {
-                setState(() => _districts = []);
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedDistrict,
-            decoration: const InputDecoration(
-              labelText: 'District',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('All Districts')),
-              ..._districts.map(
-                (d) => DropdownMenuItem(value: d, child: Text(d)),
-              ),
-            ],
-            onChanged: (value) => setState(() => _selectedDistrict = value),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedPropertyType,
-            decoration: const InputDecoration(
-              labelText: 'Property Type',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('All Types')),
-              ..._propertyTypes.map(
-                (t) => DropdownMenuItem(value: t, child: Text(t)),
-              ),
-            ],
-            onChanged: (value) => setState(() => _selectedPropertyType = value),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _selectedTenure,
-            decoration: const InputDecoration(
-              labelText: 'Tenure',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('All Tenure')),
-              ..._tenureTypes.map(
-                (t) => DropdownMenuItem(value: t, child: Text(t)),
-              ),
-            ],
-            onChanged: (value) => setState(() => _selectedTenure = value),
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
-            value: _selectedBedrooms,
-            decoration: const InputDecoration(
-              labelText: 'Bedrooms',
-              border: OutlineInputBorder(),
-            ),
-            items: [
-              const DropdownMenuItem(value: null, child: Text('Any')),
-              ..._bedroomOptions.map(
-                (b) => DropdownMenuItem(value: b, child: Text('$b+')),
-              ),
-            ],
-            onChanged: (value) => setState(() => _selectedBedrooms = value),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: MoneyFormField(
-                  controller: _minPriceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Min Price (RM)',
-                    border: OutlineInputBorder(),
-                    prefixText: 'RM ',
-                  ),
-                  onChanged: (value) {
-                    _minPrice = MoneyFormat.parse(value)?.round();
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: MoneyFormField(
-                  controller: _maxPriceController,
-                  decoration: const InputDecoration(
-                    labelText: 'Max Price (RM)',
-                    border: OutlineInputBorder(),
-                    prefixText: 'RM ',
-                  ),
-                  onChanged: (value) {
-                    _maxPrice = MoneyFormat.parse(value)?.round();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _clearFilters,
-                  child: const Text('Clear Filters'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _searchProperties,
-                  child: const Text('Apply Filters'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-
-    return panel;
   }
 
   Widget _buildPropertyCard(PropertyModel property, {bool compact = false}) {
