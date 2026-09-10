@@ -128,29 +128,29 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       ),
       body: tabletMode
           ? _buildTabletBody(
-              property,
-              photoList,
-              facilityList,
-              displayPrice,
-              isDark,
-            )
+        property,
+        photoList,
+        facilityList,
+        displayPrice,
+        isDark,
+      )
           : _buildPhoneBody(
-              property,
-              photoList,
-              facilityList,
-              displayPrice,
-              isDark,
-            ),
+        property,
+        photoList,
+        facilityList,
+        displayPrice,
+        isDark,
+      ),
     );
   }
 
   Widget _buildPhoneBody(
-    PropertyModel property,
-    List<String> photoList,
-    List<String> facilityList,
-    String displayPrice,
-    bool isDark,
-  ) {
+      PropertyModel property,
+      List<String> photoList,
+      List<String> facilityList,
+      String displayPrice,
+      bool isDark,
+      ) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,12 +172,12 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildTabletBody(
-    PropertyModel property,
-    List<String> photoList,
-    List<String> facilityList,
-    String displayPrice,
-    bool isDark,
-  ) {
+      PropertyModel property,
+      List<String> photoList,
+      List<String> facilityList,
+      String displayPrice,
+      bool isDark,
+      ) {
     return SafeArea(
       top: false,
       child: LayoutBuilder(
@@ -193,26 +193,26 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
                   child: compact
                       ? _buildImageCarousel(
+                    property,
+                    photoList,
+                    height: (constraints.maxHeight - 24).clamp(160, 420),
+                    overlayThumbnails: photoList.length > 1,
+                  )
+                      : SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        _buildImageCarousel(
                           property,
                           photoList,
-                          height: (constraints.maxHeight - 24).clamp(160, 420),
-                          overlayThumbnails: photoList.length > 1,
-                        )
-                      : SingleChildScrollView(
-                          child: Column(
-                            children: [
-                              _buildImageCarousel(
-                                property,
-                                photoList,
-                                height: 360,
-                              ),
-                              if (photoList.length > 1) ...[
-                                const SizedBox(height: 12),
-                                _buildThumbnailStrip(photoList),
-                              ],
-                            ],
-                          ),
+                          height: 360,
                         ),
+                        if (photoList.length > 1) ...[
+                          const SizedBox(height: 12),
+                          _buildThumbnailStrip(photoList),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
               Expanded(
@@ -270,11 +270,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildDetailsColumn(
-    PropertyModel property,
-    List<String> facilityList,
-    String displayPrice,
-    bool isDark,
-  ) {
+      PropertyModel property,
+      List<String> facilityList,
+      String displayPrice,
+      bool isDark,
+      ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -322,10 +322,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
             ),
           ),
         const SizedBox(height: 16),
-        _buildSpecSection(property, isDark),
-        const SizedBox(height: 16),
         if (property.tenure != null && property.tenure!.isNotEmpty)
           _buildInfoRow('Tenure', property.tenure!, isDark),
+        const SizedBox(height: 16),
+        _buildSpecSection(property, isDark),
         const SizedBox(height: 16),
         if (property.description != null && property.description!.isNotEmpty)
           _buildDescriptionSection(property, isDark),
@@ -387,11 +387,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildImageCarousel(
-    PropertyModel property,
-    List<String> photoList, {
-    double height = 300,
-    bool overlayThumbnails = false,
-  }) {
+      PropertyModel property,
+      List<String> photoList, {
+        double height = 300,
+        bool overlayThumbnails = false,
+      }) {
     final hasImages = photoList.isNotEmpty;
     final multi = hasImages && photoList.length > 1;
 
@@ -407,38 +407,38 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
               color: Colors.grey[200]!,
               child: hasImages
                   ? PageView.builder(
-                      itemCount: photoList.length,
-                      controller: _photoPageController,
-                      onPageChanged: (index) {
-                        setState(() => _selectedImageIndex = index);
-                      },
-                      itemBuilder: (context, index) {
-                        return Image.network(
-                          photoList[index],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: height,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) {
-                            return const Center(
-                              child: Icon(
-                                Icons.error,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    )
+                itemCount: photoList.length,
+                controller: _photoPageController,
+                onPageChanged: (index) {
+                  setState(() => _selectedImageIndex = index);
+                },
+                itemBuilder: (context, index) {
+                  return Image.network(
+                    photoList[index],
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: height,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.error,
+                          size: 40,
+                          color: Colors.grey,
+                        ),
+                      );
+                    },
+                  );
+                },
+              )
                   : const Center(
-                      child: Icon(Icons.home, size: 60, color: Colors.grey),
-                    ),
+                child: Icon(Icons.home, size: 60, color: Colors.grey),
+              ),
             ),
             if (hasImages && !overlayThumbnails)
               Positioned(
@@ -449,7 +449,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: List.generate(
                     photoList.length,
-                    (index) => Container(
+                        (index) => Container(
                       margin: const EdgeInsets.symmetric(horizontal: 4),
                       width: 8,
                       height: 8,
@@ -470,64 +470,64 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 bottom: 8,
                 child: _buildThumbnailStrip(photoList, height: 56),
               ),
-          if (multi)
-            Positioned(
-              left: 4,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Material(
-                  color: Colors.black45,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.chevron_left,
-                      color: Colors.white,
-                      size: 28,
+            if (multi)
+              Positioned(
+                left: 4,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Material(
+                    color: Colors.black45,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.chevron_left,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      onPressed: () {
+                        final next =
+                            (_selectedImageIndex - 1 + photoList.length) %
+                                photoList.length;
+                        _photoPageController?.animateToPage(
+                          next,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        );
+                      },
                     ),
-                    onPressed: () {
-                      final next =
-                          (_selectedImageIndex - 1 + photoList.length) %
-                              photoList.length;
-                      _photoPageController?.animateToPage(
-                        next,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                      );
-                    },
                   ),
                 ),
               ),
-            ),
-          if (multi)
-            Positioned(
-              right: 4,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Material(
-                  color: Colors.black45,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.chevron_right,
-                      color: Colors.white,
-                      size: 28,
+            if (multi)
+              Positioned(
+                right: 4,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Material(
+                    color: Colors.black45,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.chevron_right,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      onPressed: () {
+                        final next =
+                            (_selectedImageIndex + 1) % photoList.length;
+                        _photoPageController?.animateToPage(
+                          next,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        );
+                      },
                     ),
-                    onPressed: () {
-                      final next =
-                          (_selectedImageIndex + 1) % photoList.length;
-                      _photoPageController?.animateToPage(
-                        next,
-                        duration: const Duration(milliseconds: 250),
-                        curve: Curves.easeOut,
-                      );
-                    },
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
         ),
       ),
     );
