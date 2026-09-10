@@ -276,7 +276,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       bool isDark,
       ) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
           displayPrice,
@@ -665,44 +665,47 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildFacilitiesSection(List<String> facilities, bool isDark) {
-    return Card(
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Facilities',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Facilities',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: facilities.map((facility) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF2A2A3E) : Colors.blue[50],
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? Colors.blue[300]! : Colors.blue[100]!),
-                  ),
-                  child: Text(
-                    facility,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark ? Colors.blue[300] : Colors.blue[700],
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: facilities.map((facility) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2A2A3E) : Colors.blue[50],
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isDark ? Colors.blue[300]! : Colors.blue[100]!),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+                    child: Text(
+                      facility,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? Colors.blue[300] : Colors.blue[700],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -718,9 +721,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         final isLoading = snapshot.connectionState == ConnectionState.waiting;
         final insight = snapshot.data ?? NeighbourhoodInsight.empty();
 
-        return Card(
-          color: isDark ? Colors.grey[900] : Colors.blue[50],
-          child: Padding(
+        return SizedBox(
+          width: double.infinity,
+          child: Card(
+            color: isDark ? Colors.grey[900] : Colors.blue[50],
+            child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -835,6 +840,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
               ],
             ),
           ),
+        ),
         );
       },
     );
@@ -876,37 +882,40 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildAgentSection(PropertyModel property, bool isDark) {
-    return Card(
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Agent Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Agent Information',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.person, color: Colors.grey),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    property.agentName!,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.person, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      property.agentName!,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
