@@ -325,7 +325,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         if (property.tenure != null && property.tenure!.isNotEmpty)
           _buildInfoRow('Tenure', property.tenure!, isDark),
         const SizedBox(height: 16),
-        _buildSpecAndDescription(property, isDark),
+        _buildSpecSection(property, isDark),
+        const SizedBox(height: 16),
+        if (property.description != null && property.description!.isNotEmpty)
+          _buildDescriptionSection(property, isDark),
         const SizedBox(height: 16),
         if (facilityList.isNotEmpty)
           _buildFacilitiesSection(facilityList, isDark),
@@ -530,33 +533,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     );
   }
 
-  Widget _buildSpecAndDescription(PropertyModel property, bool isDark) {
-    final hasDescription =
-        property.description != null && property.description!.isNotEmpty;
-    final hasSpecs = _hasPropertySpecs(property);
-    if (!hasSpecs && !hasDescription) return const SizedBox.shrink();
-    if (!hasSpecs) return _buildDescriptionSection(property, isDark);
-    if (!hasDescription) return _buildSpecSection(property, isDark);
-
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: _buildSpecSection(property, isDark)),
-          const SizedBox(width: 12),
-          Expanded(child: _buildDescriptionSection(property, isDark)),
-        ],
-      ),
-    );
-  }
-
-  bool _hasPropertySpecs(PropertyModel property) {
-    return (property.propertyType != null && property.propertyType!.isNotEmpty) ||
-        property.bedrooms != null ||
-        property.bathrooms != null ||
-        (property.builtUp != null && property.builtUp!.isNotEmpty);
-  }
-
   Widget _buildSpecSection(PropertyModel property, bool isDark) {
     final specs = <Widget>[];
 
@@ -575,78 +551,61 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
 
     if (specs.isEmpty) return const SizedBox.shrink();
 
-    return Card(
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Property Details',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Property Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            _buildEqualSpecGrid(specs),
-          ],
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 16,
+                runSpacing: 12,
+                children: specs,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEqualSpecGrid(List<Widget> specs) {
-    final rows = <Widget>[];
-    for (var i = 0; i < specs.length; i += 2) {
-      if (i > 0) rows.add(const SizedBox(height: 12));
-      rows.add(
-        Row(
-          children: [
-            Expanded(child: specs[i]),
-            const SizedBox(width: 12),
-            Expanded(
-              child: i + 1 < specs.length ? specs[i + 1] : const SizedBox.shrink(),
-            ),
-          ],
-        ),
-      );
-    }
-    return Column(children: rows);
-  }
-
   Widget _buildSpecItem(IconData icon, String label, String value, bool isDark) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: Colors.blue),
         const SizedBox(width: 4),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: isDark ? Colors.white : Colors.black87,
-                ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: isDark ? Colors.white : Colors.black87,
               ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isDark ? Colors.white70 : Colors.grey[600],
-                ),
+            ),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? Colors.white70 : Colors.grey[600],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );
@@ -673,30 +632,33 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   Widget _buildDescriptionSection(PropertyModel property, bool isDark) {
-    return Card(
-      color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : Colors.black87,
+    return SizedBox(
+      width: double.infinity,
+      child: Card(
+        color: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Description',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              property.description ?? '',
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.grey[700],
-                height: 1.5,
+              const SizedBox(height: 8),
+              Text(
+                property.description ?? '',
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.grey[700],
+                  height: 1.5,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
