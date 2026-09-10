@@ -157,7 +157,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 color: isDark ? Colors.white : Colors.black87,
                               ),
                             ),
-                            TextButton.icon(
+                            OutlinedButton(
                               onPressed: () {
                                 Navigator.push(
                                   context,
@@ -166,10 +166,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 );
                               },
-                              icon: const Icon(Icons.edit, size: 16),
-                              label: const Text('Edit'),
-                              style: TextButton.styleFrom(
+                              style: OutlinedButton.styleFrom(
                                 foregroundColor: Colors.blue,
+                                side: const BorderSide(color: Colors.blue, width: 1.5),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                minimumSize: const Size(0, 44),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(22),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.edit_outlined, size: 18),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Edit',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

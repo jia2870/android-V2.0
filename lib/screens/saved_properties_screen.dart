@@ -291,7 +291,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       return AdaptiveNavScaffold(
         currentIndex: AppNavIndex.saved,
         onTap: _onTabTapped,
-        appBar: AppBar(title: const Text('Saved Properties')),
+        appBar: AppBar(title: const Text('Favourite Properties')),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -320,7 +320,7 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
       currentIndex: AppNavIndex.saved,
       onTap: _onTabTapped,
       appBar: AppBar(
-        title: const Text('Saved Properties'),
+        title: const Text('Favourite Properties'),
         actions: [
           if (_properties.isNotEmpty)
             Container(
@@ -342,8 +342,8 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
           IconButton(
             icon: Icon(
               wideLandscape
-                  ? Icons.filter_list
-                  : (_showFilters ? Icons.filter_list : Icons.filter_list_off),
+                  ? Icons.tune_rounded
+                  : (_showFilters ? Icons.tune_rounded : Icons.tune_outlined),
             ),
             onPressed: () {
               if (wideLandscape) {
@@ -407,10 +407,25 @@ class _SavedPropertiesScreenState extends State<SavedPropertiesScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Flexible(
-                    child: Text(
-                      '${_filteredProperties.length} saved properties',
-                      style: TextStyle(color: Colors.grey[600]),
-                      overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.home_work_outlined,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            '${_filteredProperties.length} saved properties',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (_showFilters)

@@ -144,7 +144,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
-            label: "Saved",
+            label: "Favourites",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),

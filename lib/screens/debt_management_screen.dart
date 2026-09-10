@@ -529,7 +529,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
-            label: "Saved",
+            label: "Favourites",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
