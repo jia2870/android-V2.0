@@ -27,6 +27,11 @@ class PropertyModel {
     'https://sp.analytics.yahoo.com/',
   ];
 
+  static const Map<String, String> _brokenPhotoReplacements = {
+    'https://images.unsplash.com/photo-1600585154340-0ef3ee41bbe6':
+        'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80',
+  };
+
   PropertyModel({
     required this.listingId,
     this.price,
@@ -128,6 +133,7 @@ class PropertyModel {
     return photoUrls!
         .split('|')
         .map((f) => f.trim())
+        .map(_remapBrokenPhoto)
         .where((url) {
           if (url.isEmpty) return false;
           final lower = url.toLowerCase();
@@ -140,6 +146,13 @@ class PropertyModel {
           return true;
         })
         .toList();
+  }
+
+  static String _remapBrokenPhoto(String url) {
+    for (final entry in _brokenPhotoReplacements.entries) {
+      if (url.startsWith(entry.key)) return entry.value;
+    }
+    return url;
   }
 
   String get shortAddress {

@@ -11,6 +11,7 @@ import '../../services/supabase_service.dart';
 import '../../utils/ai_access_prompt.dart';
 import '../../utils/money_format.dart';
 import '../../widgets/money_form_field.dart';
+import '../../widgets/keyboard_safe.dart';
 import 'debt_management_screen.dart';
 import 'dashboard_screen.dart';
 import 'saved_properties_screen.dart';
@@ -72,7 +73,10 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
             setState(() {
               _monthlySalaryController.text = MoneyFormat.toField(profile.monthlySalary);
               _otherIncomeController.text = MoneyFormat.toField(profile.otherIncome);
-              _commitmentsController.text = MoneyFormat.toField(profile.commitments);
+              _commitmentsController.text = MoneyFormat.toField(
+                profile.commitments,
+                calculated: true,
+              );
               _savingsController.text = MoneyFormat.toField(profile.savings);
               _downPaymentController.text = MoneyFormat.toField(profile.downPayment);
             });
@@ -157,7 +161,10 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
     try {
       final salary = MoneyFormat.parseOrZero(_monthlySalaryController.text);
       final otherIncome = MoneyFormat.parseOrZero(_otherIncomeController.text);
-      final commitments = MoneyFormat.parseOrZero(_commitmentsController.text);
+      final commitments = MoneyFormat.parseOrZero(
+        _commitmentsController.text,
+        calculated: true,
+      );
       final savings = MoneyFormat.parseOrZero(_savingsController.text);
       final downPayment = MoneyFormat.parseOrZero(_downPaymentController.text);
 
@@ -299,15 +306,18 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
     final financialProvider = Provider.of<FinancialProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
+    final riskColor = financialProvider.riskLevel == 'Low'
+        ? Colors.green
+        : financialProvider.riskLevel == 'Medium'
+        ? Colors.orange
+        : Colors.red;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Financial Assessment")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
+      body: KeyboardSafeBody(
+        child: Form(
+          key: _formKey,
+          child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Card(
@@ -408,6 +418,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
 
                 MoneyFormField(
                   controller: _commitmentsController,
+                  calculated: true,
                   decoration: InputDecoration(
                     labelText: "Monthly Commitments (RM)",
                     border: const OutlineInputBorder(),
@@ -542,103 +553,33 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
                               color: isDark ? Colors.white : Colors.black87,
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 16),
+                          _buildAffordabilityMetric(
+                            value:
+                                "RM ${MoneyFormat.displayCalculated(financialProvider.recommendedBudget)}",
+                            label: 'Budget',
+                            color: isDark ? Colors.blue[300]! : Colors.blue,
+                            isDark: isDark,
+                            valueSize: 28,
+                          ),
+                          const SizedBox(height: 16),
                           Row(
                             children: [
                               Expanded(
-                                child: Column(
-                                  children: [
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        "${financialProvider.affordabilityScore.toStringAsFixed(0)}%",
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: financialProvider.riskLevel ==
-                                                  'Low'
-                                              ? Colors.green
-                                              : financialProvider.riskLevel ==
-                                                    'Medium'
-                                              ? Colors.orange
-                                              : Colors.red,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      "Score",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                                child: _buildAffordabilityMetric(
+                                  value: financialProvider.riskLevel,
+                                  label: 'Risk Level',
+                                  color: riskColor,
+                                  isDark: isDark,
                                 ),
                               ),
                               Expanded(
-                                flex: 2,
-                                child: Column(
-                                  children: [
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        "RM ${MoneyFormat.displayCalculated(financialProvider.recommendedBudget)}",
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: isDark
-                                              ? Colors.blue[300]
-                                              : Colors.blue,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      "Budget",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    FittedBox(
-                                      fit: BoxFit.scaleDown,
-                                      child: Text(
-                                        financialProvider.riskLevel,
-                                        maxLines: 1,
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: financialProvider.riskLevel ==
-                                                  'Low'
-                                              ? Colors.green
-                                              : financialProvider.riskLevel ==
-                                                    'Medium'
-                                              ? Colors.orange
-                                              : Colors.red,
-                                        ),
-                                      ),
-                                    ),
-                                    Text(
-                                      "Risk Level",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isDark
-                                            ? Colors.white70
-                                            : Colors.grey[600],
-                                      ),
-                                    ),
-                                  ],
+                                child: _buildAffordabilityMetric(
+                                  value:
+                                      "${financialProvider.affordabilityScore.toStringAsFixed(0)}%",
+                                  label: 'Score',
+                                  color: riskColor,
+                                  isDark: isDark,
                                 ),
                               ),
                             ],
@@ -652,7 +593,6 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
             ),
           ),
         ),
-      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _currentIndex,
@@ -661,11 +601,46 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.search), label: "Home"),
           BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Saved"),
+          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favourites"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
         ],
         onTap: _onTabTapped,
       ),
+    );
+  }
+
+  Widget _buildAffordabilityMetric({
+    required String value,
+    required String label,
+    required Color color,
+    required bool isDark,
+    double valueSize = 24,
+  }) {
+    return Column(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            maxLines: 1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: valueSize,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white70 : Colors.grey[600],
+          ),
+        ),
+      ],
     );
   }
 

@@ -122,7 +122,10 @@ class AdaptiveNavScaffold extends StatelessWidget {
       actions: source.actions,
       backgroundColor: source.backgroundColor,
       foregroundColor: source.foregroundColor,
-      elevation: source.elevation,
+      elevation: source.elevation ?? 0,
+      scrolledUnderElevation: 0,
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       centerTitle: source.centerTitle,
       bottom: source.bottom,
       flexibleSpace: source.flexibleSpace,
@@ -150,7 +153,7 @@ class AdaptiveNavScaffold extends StatelessWidget {
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Home'),
             BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: 'AI'),
-            BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Saved'),
+            BottomNavigationBarItem(icon: Icon(Icons.favorite), label: 'Favourites'),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
           onTap: (i) => _handleTap(context, i),
@@ -159,6 +162,7 @@ class AdaptiveNavScaffold extends StatelessWidget {
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Row(
         children: [
           _TabletSideNav(
@@ -168,6 +172,7 @@ class AdaptiveNavScaffold extends StatelessWidget {
           const VerticalDivider(width: 1, thickness: 1),
           Expanded(
             child: Scaffold(
+              resizeToAvoidBottomInset: true,
               appBar: resolvedAppBar,
               body: body,
               floatingActionButton: floatingActionButton,
@@ -188,7 +193,7 @@ class _TabletSideNav extends StatelessWidget {
   static const _items = <({int index, IconData icon, String label})>[
     (index: AppNavIndex.home, icon: Icons.search, label: 'Home'),
     (index: AppNavIndex.ai, icon: Icons.smart_toy, label: 'AI'),
-    (index: AppNavIndex.saved, icon: Icons.favorite_outline, label: 'Saved'),
+    (index: AppNavIndex.saved, icon: Icons.favorite_outline, label: 'Favourites'),
     (index: AppNavIndex.profile, icon: Icons.person_outline, label: 'Profile'),
     (
     index: AppNavIndex.settings,

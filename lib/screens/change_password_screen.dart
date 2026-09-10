@@ -107,6 +107,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.all(16),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: [
             _buildPasswordField(
               controller: _currentController,

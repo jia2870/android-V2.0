@@ -37,7 +37,7 @@ class FinancialProvider extends ChangeNotifier {
   }) {
     this.monthlySalary = MoneyFormat.clamp(salary);
     this.otherIncome = MoneyFormat.clamp(otherIncome);
-    this.commitments = MoneyFormat.clamp(commitments);
+    this.commitments = MoneyFormat.clampCalculated(commitments);
     this.savings = MoneyFormat.clamp(savings);
     this.downPayment = MoneyFormat.clamp(downPayment);
     _calculateAffordability();

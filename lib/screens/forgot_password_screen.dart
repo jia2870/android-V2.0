@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/keyboard_safe.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -93,10 +94,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Forgot Password')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
+      body: KeyboardSafeBody(
+        centerWhenShort: true,
+        child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
@@ -126,7 +126,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: const Text('Back to Login'),
               ),
             ],
-          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -145,7 +144,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),
-            label: "Saved",
+            label: "Favourites",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
