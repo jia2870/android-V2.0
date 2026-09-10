@@ -146,24 +146,20 @@ class _PropertyFilterDialogState extends State<PropertyFilterDialog> {
 
     return KeyboardSafeDialog(
       overlayKeyboard: true,
-      child: Column(
+      fitContent: true,
+      child: ListView(
+        shrinkWrap: true,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.zero,
         children: [
           _buildHeader(),
           const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + keyboardInset),
-              child: Column(
-                children: [
-                  _buildFilterFields(keyboardInset),
-                  const SizedBox(height: 16),
-                  const Divider(height: 1),
-                  _buildFooter(),
-                ],
-              ),
-            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: _buildFilterFields(keyboardInset),
           ),
+          const Divider(height: 1),
+          _buildFooter(),
         ],
       ),
     );

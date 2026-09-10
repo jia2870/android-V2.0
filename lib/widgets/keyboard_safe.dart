@@ -56,6 +56,7 @@ class KeyboardSafeDialog extends StatelessWidget {
     this.horizontalInset = 16,
     this.verticalInset = 16,
     this.overlayKeyboard = true,
+    this.fitContent = false,
   });
 
   final Widget child;
@@ -63,6 +64,8 @@ class KeyboardSafeDialog extends StatelessWidget {
   final double horizontalInset;
   final double verticalInset;
   final bool overlayKeyboard;
+  /// When true, the dialog is only as tall as [child], up to [maxHeight].
+  final bool fitContent;
 
   @override
   Widget build(BuildContext context) {
@@ -82,12 +85,24 @@ class KeyboardSafeDialog extends StatelessWidget {
         verticalInset + keyboard,
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: SizedBox(
-          height: maxHeight,
-          width: double.infinity,
-          child: child,
+        constraints: BoxConstraints(
+          maxWidth: maxWidth,
+          maxHeight: maxHeight,
         ),
+        child: fitContent
+            ? Align(
+                alignment: Alignment.center,
+                heightFactor: 1,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: child,
+                ),
+              )
+            : SizedBox(
+                height: maxHeight,
+                width: double.infinity,
+                child: child,
+              ),
       ),
     );
 
