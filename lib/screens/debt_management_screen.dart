@@ -6,16 +6,10 @@ import '../providers/financial_provider.dart';
 import '../services/debt_service.dart';
 import '../services/financial_service.dart';
 import '../services/supabase_service.dart';
-import '../utils/ai_access_prompt.dart';
 import '../utils/money_format.dart';
+import '../widgets/adaptive_nav_scaffold.dart';
 import '../widgets/keyboard_safe.dart';
 import '../widgets/money_form_field.dart';
-import 'dashboard_screen.dart';
-import 'saved_properties_screen.dart';
-import 'profile_screen.dart';
-import 'ai_advisor_screen.dart';
-import 'login_screen.dart';
-import 'financial_assessment_screen.dart';
 
 class DebtManagementScreen extends StatefulWidget {
   const DebtManagementScreen({super.key});
@@ -38,8 +32,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
   List<DebtModel> _debts = [];
   bool _isLoading = true;
 
-  int _currentIndex = 3;
-
   final List<String> debtTypes = const [
     'Car Loan',
     'PTPTN',
@@ -50,48 +42,7 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
   ];
 
   void _onTabTapped(int index) {
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } else if (index == 1) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final financial = Provider.of<FinancialProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      if (financial.monthlySalary <= 0) {
-        showCompleteFinancialAssessmentPrompt(context);
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const AIAdvisorScreen(property: null),
-        ),
-      );
-    } else if (index == 2) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SavedPropertiesScreen()),
-      );
-    } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      );
-    }
+    handleAppNavigation(context, index);
   }
 
   @override
@@ -424,8 +375,10 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return AdaptiveNavScaffold(
+      currentIndex: AppNavIndex.profile,
+      onTap: _onTabTapped,
+      automaticallyImplyLeading: true,
       appBar: AppBar(
         title: const Text('Debt Management'),
         actions: [
@@ -513,31 +466,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.search),
-            label: "Home",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.smart_toy),
-            label: "AI",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: "Favourites",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Profile",
-          ),
-        ],
-        onTap: _onTabTapped,
-      ),
     );
   }
 }
@@ -617,7 +545,11 @@ class _DebtEntryDialogState extends State<_DebtEntryDialog> {
 
     return KeyboardSafeDialog(
       overlayKeyboard: true,
-      child: Column(
+      fitContent: true,
+      child: ListView(
+        shrinkWrap: true,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: EdgeInsets.zero,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
@@ -638,123 +570,120 @@ class _DebtEntryDialogState extends State<_DebtEntryDialog> {
             ),
           ),
           const Divider(height: 1),
-          Expanded(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + keyboardInset),
-              child: Form(
-                key: widget.formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _labeledField(
-                      label: 'Debt Type',
-                      field: DropdownButtonFormField<String>(
-                        initialValue: _selectedDebtType,
-                        isExpanded: true,
-                        decoration: _fieldDecoration,
-                        items: widget.debtTypes.map((type) {
-                          return DropdownMenuItem(
-                            value: type,
-                            child: Text(type),
-                          );
-                        }).toList(),
-                        onTap: () =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _selectedDebtType = value);
-                          widget.onTypeChanged(value);
-                        },
-                      ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Form(
+              key: widget.formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _labeledField(
+                    label: 'Debt Type',
+                    field: DropdownButtonFormField<String>(
+                      initialValue: _selectedDebtType,
+                      isExpanded: true,
+                      decoration: _fieldDecoration,
+                      items: widget.debtTypes.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(type),
+                        );
+                      }).toList(),
+                      onTap: () =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _selectedDebtType = value);
+                        widget.onTypeChanged(value);
+                      },
                     ),
-                    if (_selectedDebtType == 'Other')
-                      _labeledField(
-                        label: 'Debt Name',
-                        field: TextFormField(
-                          controller: widget.nameController,
-                          decoration: _fieldDecoration,
-                          scrollPadding: scrollPadding,
-                          validator: (value) => value!.isEmpty
-                              ? 'Please enter debt name'
-                              : null,
-                        ),
-                      ),
+                  ),
+                  if (_selectedDebtType == 'Other')
                     _labeledField(
-                      label: 'Total Amount (RM)',
-                      field: MoneyFormField(
-                        controller: widget.totalAmountController,
-                        decoration: _fieldDecoration,
-                        scrollPadding: scrollPadding,
-                        validator: (value) =>
-                            widget.validateNumber(value, 'Total Amount'),
-                      ),
-                    ),
-                    _labeledField(
-                      label: 'Monthly Payment (RM)',
-                      field: MoneyFormField(
-                        controller: widget.monthlyPaymentController,
-                        decoration: _fieldDecoration,
-                        scrollPadding: scrollPadding,
-                        validator: (value) =>
-                            widget.validateNumber(value, 'Monthly Payment'),
-                      ),
-                    ),
-                    _labeledField(
-                      label: 'Interest Rate (%)',
+                      label: 'Debt Name',
                       field: TextFormField(
-                        controller: widget.interestRateController,
+                        controller: widget.nameController,
                         decoration: _fieldDecoration,
                         scrollPadding: scrollPadding,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d{0,2}(\.\d{0,2})?$'),
-                          ),
-                          _MaxValueFormatter(
-                            _DebtManagementScreenState.maxInterestRate,
-                          ),
-                        ],
-                        validator: widget.validateInterestRate,
+                        validator: (value) => value!.isEmpty
+                            ? 'Please enter debt name'
+                            : null,
                       ),
                     ),
-                    _labeledField(
-                      label: 'Remaining Months',
-                      field: TextFormField(
-                        controller: widget.remainingMonthsController,
-                        decoration: _fieldDecoration,
-                        scrollPadding: scrollPadding,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(3),
-                          _MaxValueFormatter(
-                            _DebtManagementScreenState.maxRemainingMonths,
-                            integer: true,
-                          ),
-                        ],
-                        validator: widget.validateRemainingMonths,
-                      ),
+                  _labeledField(
+                    label: 'Total Amount (RM)',
+                    field: MoneyFormField(
+                      controller: widget.totalAmountController,
+                      decoration: _fieldDecoration,
+                      scrollPadding: scrollPadding,
+                      validator: (value) =>
+                          widget.validateNumber(value, 'Total Amount'),
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
+                  ),
+                  _labeledField(
+                    label: 'Monthly Payment (RM)',
+                    field: MoneyFormField(
+                      controller: widget.monthlyPaymentController,
+                      decoration: _fieldDecoration,
+                      scrollPadding: scrollPadding,
+                      validator: (value) =>
+                          widget.validateNumber(value, 'Monthly Payment'),
+                    ),
+                  ),
+                  _labeledField(
+                    label: 'Interest Rate (%)',
+                    field: TextFormField(
+                      controller: widget.interestRateController,
+                      decoration: _fieldDecoration,
+                      scrollPadding: scrollPadding,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d{0,2}(\.\d{0,2})?$'),
                         ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: widget.onSave,
-                          child: Text(widget.isEdit ? 'Update' : 'Add'),
+                        _MaxValueFormatter(
+                          _DebtManagementScreenState.maxInterestRate,
                         ),
                       ],
+                      validator: widget.validateInterestRate,
                     ),
-                  ],
-                ),
+                  ),
+                  _labeledField(
+                    label: 'Remaining Months',
+                    field: TextFormField(
+                      controller: widget.remainingMonthsController,
+                      decoration: _fieldDecoration,
+                      scrollPadding: scrollPadding,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(3),
+                        _MaxValueFormatter(
+                          _DebtManagementScreenState.maxRemainingMonths,
+                          integer: true,
+                        ),
+                      ],
+                      validator: widget.validateRemainingMonths,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: widget.onSave,
+                        child: Text(widget.isEdit ? 'Update' : 'Add'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ),

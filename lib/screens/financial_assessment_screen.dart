@@ -8,15 +8,11 @@ import '../../providers/theme_provider.dart';
 import '../../services/debt_service.dart';
 import '../../services/financial_service.dart';
 import '../../services/supabase_service.dart';
-import '../../utils/ai_access_prompt.dart';
 import '../../utils/money_format.dart';
+import '../../widgets/adaptive_nav_scaffold.dart';
 import '../../widgets/money_form_field.dart';
 import '../../widgets/keyboard_safe.dart';
 import 'debt_management_screen.dart';
-import 'dashboard_screen.dart';
-import 'saved_properties_screen.dart';
-import 'profile_screen.dart';
-import 'ai_advisor_screen.dart';
 
 class FinancialAssessmentScreen extends StatefulWidget {
   const FinancialAssessmentScreen({super.key});
@@ -36,8 +32,6 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
   final FinancialService _financialService = FinancialService();
   final DebtService _debtService = DebtService();
   bool _isSaving = false;
-
-  static const int _currentIndex = 1;
 
   @override
   void initState() {
@@ -257,48 +251,7 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
   }
 
   void _onTabTapped(int index) {
-    if (index == 0) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-      );
-    } else if (index == 1) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      final financial = Provider.of<FinancialProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      if (financial.monthlySalary <= 0) {
-        showCompleteFinancialAssessmentPrompt(context);
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const AIAdvisorScreen(property: null),
-        ),
-      );
-    } else if (index == 2) {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
-      if (!auth.isLoggedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please login first')),
-        );
-        return;
-      }
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const SavedPropertiesScreen()),
-      );
-    } else if (index == 3) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
-      );
-    }
+    handleAppNavigation(context, index);
   }
 
   @override
@@ -312,7 +265,10 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
         ? Colors.orange
         : Colors.red;
 
-    return Scaffold(
+    return AdaptiveNavScaffold(
+      currentIndex: AppNavIndex.profile,
+      onTap: _onTabTapped,
+      automaticallyImplyLeading: true,
       appBar: AppBar(title: const Text("Financial Assessment")),
       body: KeyboardSafeBody(
         child: Form(
@@ -593,19 +549,6 @@ class _FinancialAssessmentScreenState extends State<FinancialAssessmentScreen> {
             ),
           ),
         ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: "Home"),
-          BottomNavigationBarItem(icon: Icon(Icons.smart_toy), label: "AI"),
-          BottomNavigationBarItem(icon: Icon(Icons.favorite), label: "Favourites"),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
-        ],
-        onTap: _onTabTapped,
-      ),
     );
   }
 
